@@ -98,8 +98,10 @@ class _AtomSequence:
     def from_spectra(cls, spectra: Spectrum1DCollection) -> Self:
         """Build a quasi-structure object from metadata of spectra."""
         symbols, masses = zip(
-            *((metadata.get("atom_symbol"), metadata.get("mass"))
-              for metadata in spectra.iter_metadata()),
+            *(
+                (metadata.get("atom_symbol"), metadata.get("mass"))
+                for metadata in spectra.iter_metadata()
+            ),
             strict=True,
         )
 
@@ -108,7 +110,7 @@ class _AtomSequence:
         if any(map(is_none, symbols)) or any(map(is_none, masses)):
             raise ValueError(
                 "Not all items in spectra have atom_symbol and mass metadata."
-                )
+            )
 
         atom_type = np.array(symbols)
         atom_mass = Quantity(np.fromiter(map(float, masses), dtype=float), "amu")

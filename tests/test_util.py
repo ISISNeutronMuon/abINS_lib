@@ -69,9 +69,6 @@ def test_calculate_indirect_q2(
 
 @pytest.fixture
 def h2d_spectra(rng) -> Spectrum1DCollection:
-    x_data = Quantity(np.linspace(0, 5, 6), "meV")
-    y_data = Quantity(rng.random((3, 5)), "1/meV")
-
     return Spectrum1DCollection(
         x_data=Quantity(np.linspace(0, 5, 6), "meV"),
         y_data=Quantity(rng.random((3, 5)), "1/meV"),
@@ -85,6 +82,7 @@ def h2d_spectra(rng) -> Spectrum1DCollection:
         },
     )
 
+
 def test_atom_sequence(h2d_spectra) -> None:
     atoms = _AtomSequence.from_spectra(h2d_spectra)
 
@@ -97,8 +95,12 @@ def test_apply_weights(h2d_spectra) -> None:
     weighted = apply_weights(h2d_spectra)
 
     assert weighted.y_data.units == ureg("barn / meV")
-    assert_allclose(weighted.y_data[:2].magnitude, h2d_spectra.y_data[:2].magnitude * 82.02)
-    assert_allclose(weighted.y_data[2].magnitude, h2d_spectra.y_data[2].magnitude * 7.64)
+    assert_allclose(
+        weighted.y_data[:2].magnitude, h2d_spectra.y_data[:2].magnitude * 82.02
+    )
+    assert_allclose(
+        weighted.y_data[2].magnitude, h2d_spectra.y_data[2].magnitude * 7.64
+    )
 
 
 def test_bad_spectra(h2d_spectra) -> None:
@@ -106,11 +108,13 @@ def test_bad_spectra(h2d_spectra) -> None:
 
     del h2d_spectra.metadata["atom_symbol"]
     with pytest.raises(
-        ValueError, match="Not all items in spectra have atom_symbol and mass metadata."):
+        ValueError, match="Not all items in spectra have atom_symbol and mass metadata."
+    ):
         apply_weights(h2d_spectra)
 
     h2d_spectra.metadata = deepcopy(ref_metadata)
     h2d_spectra.metadata["line_data"][1] = {}
     with pytest.raises(
-        ValueError, match="Not all items in spectra have atom_symbol and mass metadata."):
+        ValueError, match="Not all items in spectra have atom_symbol and mass metadata."
+    ):
         apply_weights(h2d_spectra)
