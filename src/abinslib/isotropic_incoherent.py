@@ -234,9 +234,6 @@ def q_scaling_isotropic_incoherent_spectra(
             Scalar Q^2 values corresponding to output bin centers.
         bins:
             Energy or frequency bins used as x_data in resulting spectra
-        apply_cross_section:
-            Multiply each atom/isotope spectrum by a corresponding total
-            neutron scattering cross-section (σ_tot).
 
     Returns:
         binned spectra of contribution from each nucleus
@@ -252,8 +249,6 @@ def q_scaling_isotropic_incoherent_spectra(
         bins=bins,
         include_dw=False,
     )
-
-    spectra = apply_weights(spectra)
 
     # More generally this factor is Q^2N / N!
     q2_scale = nominal_q2 / Quantity(1, "Å^-2")

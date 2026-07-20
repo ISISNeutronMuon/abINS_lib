@@ -145,6 +145,7 @@ def test_q_scaling_isotropic_incoherent_spectrum(
     q2 = Quantity(np.load(test_data / "abins-q2-1_4-dump.npy"), "Å^-2")
 
     spectra = q_scaling_isotropic_incoherent_spectra(modes, b, a, q2, bins)
+    spectra = apply_weights(spectra)  # default: Sears 1992 σ_tot
     spectrum = spectra.sum()
 
     # Fairly tight check against Mantid-Abins reference
