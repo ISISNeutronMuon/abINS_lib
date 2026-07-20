@@ -92,7 +92,6 @@ def _bin_mode_intensities(
     modes: QpointPhononModes,
     intensities: np.ndarray,
     bins: Quantity,
-    apply_cross_section: bool = True,
 ) -> Quantity:
     """Bin intensities corresponding to QpointPhononModes to 1D spectra.
 
@@ -103,14 +102,7 @@ def _bin_mode_intensities(
     bin_width = bins[1] - bins[0]
     q_weights = modes.weights / modes.weights.sum()
 
-    if apply_cross_section:
-        atom_weights = _get_total_cross_sections(modes.crystal).to("barn").magnitude
-    else:
-        atom_weights = np.ones_like(modes.crystal.atom_mass)
-
-    weighted_intensities = np.einsum(
-        "i,k,ijk->ijk", q_weights, atom_weights, intensities
-    )
+    weighted_intensities = np.einsum("i,ijk->ijk", q_weights, intensities)
 
     frequencies = modes.frequencies.to(bins.units).magnitude
     y_data = np.zeros([modes.crystal.n_atoms, len(bins) - 1])
@@ -128,11 +120,7 @@ def _bin_mode_intensities(
             y_data[atom_index] += y_q_atom
 
     # Apply correct spectral scaling / units
-    y_data = y_data / bin_width
-    if apply_cross_section:
-        y_data = y_data * ureg("barn")
-
-    return y_data
+    return y_data / bin_width
 
 
 def calculate_isotropic_incoherent_spectra(
@@ -181,7 +169,6 @@ def calculate_isotropic_incoherent_spectra(
         modes=modes,
         intensities=intensities,
         bins=bins,
-        apply_cross_section=False,
     )
 
     metadata = {

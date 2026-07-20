@@ -12,7 +12,7 @@ from .isotropic_incoherent import (
     _get_total_cross_sections,
     calculate_isotropic_dw_factor,
 )
-
+from .util import apply_weights
 
 def calculate_almost_isotropic_incoherent_fundamentals(
     mode_displacements: Displacements,
@@ -195,7 +195,6 @@ def calculate_almost_isotropic_incoherent_spectra(
         modes=modes,
         intensities=intensities,
         bins=bins,
-        apply_cross_section=apply_cross_section,
     )
 
     metadata = {
@@ -217,7 +216,10 @@ def calculate_almost_isotropic_incoherent_spectra(
             )
         ],
     }
-    return Spectrum1DCollection(x_data=bins, y_data=y_data, metadata=metadata)
+    spectra = Spectrum1DCollection(x_data=bins, y_data=y_data, metadata=metadata)
+    if apply_cross_section:
+        spectra = apply_weights(spectra)
+    return spectra
 
 
 def calculate_almost_isotropic_incoherent_combination_spectra(
