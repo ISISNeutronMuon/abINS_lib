@@ -37,7 +37,8 @@ dev = [
 ]
 
 [project.urls]
-Repository = "https://github.com/pace-neutrons/abinslib"
+Repository = "https://github.com/isisneutronmuon/abINS_lib"
+Documentation = "https://isisneutronmuon.github.io/abINS_lib"
 
 [tool.coverage.paths]
 source = ["src",

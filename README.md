@@ -63,9 +63,9 @@ cross-section references.
 
 [ruff-badge]: https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json
 [ruff-link]: https://github.com/astral-sh/ruff
-[ci-badge]: https://github.com/pace-neutrons/abinslib/actions/workflows/test.yml/badge.svg
-[ci-link]: https://github.com/pace-neutrons/abinslib/actions/workflows/test.yml
+[ci-badge]: https://github.com/isisneutronmuon/abINS_lib/actions/workflows/test.yml/badge.svg
+[ci-link]: https://github.com/isisneutronmuon/abINS_lib/actions/workflows/test.yml
 [docs-badge]: https://img.shields.io/badge/docs-online-00796B
-[docs-link]: https://pace-neutrons.github.io/abinslib/
+[docs-link]: https://isisneutronmuon.github.io/abINS_lib/
 [license-badge]: https://img.shields.io/badge/License-GPLv3-blue.svg
 [license-link]: https://www.gnu.org/licenses/gpl-3.0
