@@ -4,9 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "abinslib"
-version = "0.1.0"
+version = "0.1.0.post1"
+description = "A library of calculation methods for inelastic neutron-scattering intensities from harmonic phonon simulation data."
 requires-python = ">=3.11"
-
 dependencies = [
     "euphonic >= 2.0.0,<3",
     "resins == 0.1.0",
