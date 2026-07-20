@@ -15,6 +15,7 @@ from abinslib.isotropic_incoherent import (
     calculate_isotropic_incoherent_spectra,
     q_scaling_isotropic_incoherent_spectra,
 )
+from abinslib.util import apply_weights
 
 test_data = Path(__file__).parent / "data"
 
@@ -90,6 +91,7 @@ def test_calculate_isotropic_incoherent_spectrum(
     a = b.to_atomic_displacements()
 
     spectra = calculate_isotropic_incoherent_spectra(modes, b, a, q2, bins)
+    spectra = apply_weights(spectra)  # default: Sears 1992 σ_tot
     spectrum = spectra.sum()
 
     # Loose check against Mantid-Abins: different quantisation scheme
@@ -120,13 +122,13 @@ def test_calculate_isotropic_incoherent_spectrum_no_cross_section(
     bins = Quantity(np.linspace(0, 1000, 400), "cm_1")
 
     spectra = calculate_isotropic_incoherent_spectra(
-        modes, b, a, q2, bins, apply_cross_section=False, include_dw=True
+        modes, b, a, q2, bins, include_dw=True
     )
     spectrum = spectra.sum()
 
     ndarrays_regression.check(
         {
-            "y_data": spectrum.y_data.to("barn / cm_1").magnitude,
+            "y_data": spectrum.y_data.to("1 / cm_1").magnitude,
             "x_data": spectrum.x_data.to("cm_1").magnitude,
         }
     )

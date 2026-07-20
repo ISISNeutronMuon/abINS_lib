@@ -9,6 +9,8 @@ from euphonic.crystal import Crystal
 from euphonic.spectra import Spectrum1DCollection
 import numpy as np
 
+from abinslib.util import apply_weights
+
 if TYPE_CHECKING:
     from euphonic import QpointPhononModes
 
@@ -126,7 +128,10 @@ def _bin_mode_intensities(
             y_data[atom_index] += y_q_atom
 
     # Apply correct spectral scaling / units
-    y_data = y_data * ureg("barn") / bin_width
+    y_data = y_data / bin_width
+    if apply_cross_section:
+        y_data = y_data * ureg("barn")
+
     return y_data
 
 
@@ -136,7 +141,6 @@ def calculate_isotropic_incoherent_spectra(
     atomic_displacements: Quantity,
     nominal_q2: Quantity,
     bins: Quantity,
-    apply_cross_section: bool = True,
     include_dw: bool = True,
 ) -> Spectrum1DCollection:
     """Calculate INS intensities in fully-isotropic incoherent approximation.
@@ -159,9 +163,6 @@ def calculate_isotropic_incoherent_spectra(
             neutron instrument parameters.
         bins:
             Energy or frequency bins used as x_data in resulting spectra
-        apply_cross_section:
-            Multiply each atom/isotope spectrum by a corresponding total
-            neutron scattering cross-section (σ_tot).
         include_dw:
             Multiply each spectrum by Debye-Waller factor; this is calculated
             from atomic_displacements and follows nominal_q2.
@@ -180,12 +181,11 @@ def calculate_isotropic_incoherent_spectra(
         modes=modes,
         intensities=intensities,
         bins=bins,
-        apply_cross_section=apply_cross_section,
+        apply_cross_section=False,
     )
 
     metadata = {
         "method": "isotropic incoherent",
-        "cross sections": ("incoherent + coherent" if apply_cross_section else "none"),
         "line_data": [
             {
                 "atom_index": i,
@@ -250,9 +250,10 @@ def q_scaling_isotropic_incoherent_spectra(
         atomic_displacements=atomic_displacements,
         nominal_q2=Quantity(np.ones_like(modes.frequencies.magnitude), "Å^-2"),
         bins=bins,
-        apply_cross_section=True,
         include_dw=False,
     )
+
+    spectra = apply_weights(spectra)
 
     # More generally this factor is Q^2N / N!
     q2_scale = nominal_q2 / Quantity(1, "Å^-2")
