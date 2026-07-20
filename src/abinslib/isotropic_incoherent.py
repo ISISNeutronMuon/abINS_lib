@@ -187,8 +187,19 @@ def calculate_isotropic_incoherent_spectra(
         "method": "isotropic incoherent",
         "cross sections": ("incoherent + coherent" if apply_cross_section else "none"),
         "line_data": [
-            {"atom_index": i, "atom_symbol": symbol, "quantum_order": 1}
-            for i, symbol in enumerate(modes.crystal.atom_type)
+            {
+                "atom_index": i,
+                "atom_symbol": symbol,
+                "quantum_order": 1,
+                "mass": str(mass),
+            }
+            for i, (symbol, mass) in enumerate(
+                zip(
+                    modes.crystal.atom_type,
+                    modes.crystal.atom_mass.to("amu").magnitude,
+                    strict=True,
+                )
+            )
         ],
     }
     return Spectrum1DCollection(x_data=bins, y_data=y_data, metadata=metadata)
