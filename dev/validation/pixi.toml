@@ -1,12 +1,18 @@
 [workspace]
 authors = ["Adam J. Jackson <a.j.jackson@physics.org>"]
-channels = ["conda-forge", "bioconda", "nodefaults"]
+channels = ["mantid", "conda-forge", "bioconda", "nodefaults"]
 name = "validation"
-platforms = ["linux-64"]
+platforms = ["linux-64", "osx-arm64"]
 version = "0.1.0"
 
 [tasks]
+generate = "snakemake --cores 1"
+# Zip up the generated json files and inputs for reference archive
+archive = "zip -j validation-data-v1.zip results/*_mantid_*.json data/*.json"
+# Generate sha256 hashes of results for the Pooch registry
+hashes = "python scripts/hash_results.py"
 
 [dependencies]
-conda = "~=26.5"
 snakemake = "~=9.16.3"
+mantid = "~=6.15.0"
+poco = "1.14.2"
