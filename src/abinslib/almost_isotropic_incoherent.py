@@ -9,10 +9,8 @@ import numpy as np
 from .displacements import Displacements
 from .isotropic_incoherent import (
     _bin_mode_intensities,
-    _get_total_cross_sections,
     calculate_isotropic_dw_factor,
 )
-from .util import apply_weights
 
 
 def calculate_almost_isotropic_incoherent_fundamentals(

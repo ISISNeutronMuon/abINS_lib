@@ -90,7 +90,11 @@ def test_calculate_almost_isotropic_incoherent_spectra(
     bins = Quantity(np.arange(0, 8000, 1), "cm_1")
 
     spectra = calculate_almost_isotropic_incoherent_spectra(
-        modes, b, a, q2, bins,
+        modes,
+        b,
+        a,
+        q2,
+        bins,
     )
 
     ndarrays_regression.check(
@@ -132,7 +136,11 @@ def test_calculate_almost_isotropic_incoherent_combination_spectra(
     )
 
     spectra = calculate_almost_isotropic_incoherent_combination_spectra(
-        modes, b, a, q2, bins,
+        modes,
+        b,
+        a,
+        q2,
+        bins,
     )
 
     ndarrays_regression.check(
@@ -189,7 +197,11 @@ def test_q_scaling_almost_isotropic_incoherent_combination_spectra(
     )
 
     spectra = q_scaling_almost_isotropic_incoherent_combination_spectra(
-        modes, b, a, q2, bins,
+        modes,
+        b,
+        a,
+        q2,
+        bins,
     )
 
     ndarrays_regression.check(
@@ -226,7 +238,11 @@ def test_mantid_like_combination_spectra(
     )
 
     spectra = mantid_like_combination_spectra(
-        modes, b, a, q2, bins,
+        modes,
+        b,
+        a,
+        q2,
+        bins,
     )
 
     ndarrays_regression.check(
