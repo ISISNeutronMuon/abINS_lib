@@ -14,6 +14,7 @@ from .isotropic_incoherent import (
 )
 from .util import apply_weights
 
+
 def calculate_almost_isotropic_incoherent_fundamentals(
     mode_displacements: Displacements,
     atomic_displacements: Quantity,

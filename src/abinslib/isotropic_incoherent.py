@@ -4,12 +4,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from euphonic import Quantity, ureg
+from euphonic import Quantity
 from euphonic.crystal import Crystal
 from euphonic.spectra import Spectrum1DCollection
 import numpy as np
-
-from abinslib.util import apply_weights
 
 if TYPE_CHECKING:
     from euphonic import QpointPhononModes

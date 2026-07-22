@@ -26,7 +26,12 @@ q2 = calculate_indirect_q2(
 )
 
 spectra = calculate_almost_isotropic_incoherent_spectra(
-    modes, displacements, dw, q2, bins, apply_cross_section=False,
+    modes,
+    displacements,
+    dw,
+    q2,
+    bins,
+    apply_cross_section=False,
 )
 spectra = apply_weights(spectra)
 spectrum = spectra.sum()
