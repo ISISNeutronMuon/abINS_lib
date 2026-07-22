@@ -80,7 +80,7 @@ def test_calculate_almost_isotropic_incoherent_combinations_bad_q(tosca_modes):
     ],
     indirect=["tosca_modes"],
 )
-def test_calculate_isotropic_incoherent_spectra(
+def test_calculate_almost_isotropic_incoherent_spectra(
     temperature_k, tosca_modes, ndarrays_regression
 ):
     """Test almost-isotropic fundamentals"""
@@ -89,7 +89,9 @@ def test_calculate_isotropic_incoherent_spectra(
 
     bins = Quantity(np.arange(0, 8000, 1), "cm_1")
 
-    spectra = calculate_almost_isotropic_incoherent_spectra(modes, b, a, q2, bins)
+    spectra = calculate_almost_isotropic_incoherent_spectra(
+        modes, b, a, q2, bins, apply_cross_section=False
+    )
 
     ndarrays_regression.check(
         {
