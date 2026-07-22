@@ -1,1 +1,0 @@
-Placeholder so the results/ folder can be created by Git project
