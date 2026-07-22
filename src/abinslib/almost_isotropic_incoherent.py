@@ -499,5 +499,4 @@ def _bin_combination_modes(
         y_data[atom_index] = y_q_atom
 
     # Apply correct spectral scaling / units
-    y_data = y_data * ureg("barn") / bin_width
-    return y_data
+    return y_data / bin_width
