@@ -157,7 +157,6 @@ def calculate_almost_isotropic_incoherent_spectra(
     atomic_displacements: Quantity,
     nominal_q2: Quantity,
     bins: Quantity,
-    apply_cross_section: bool = True,
 ) -> Spectrum1DCollection:
     """Calculate INS intensities in almost-isotropic incoherent approximation.
 
@@ -179,9 +178,6 @@ def calculate_almost_isotropic_incoherent_spectra(
             neutron instrument parameters.
         bins:
             Energy or frequency bins used as x_data in resulting spectra
-        apply_cross_section:
-            Multiply each atom/isotope spectrum by a corresponding total
-            neutron scattering cross-section (σ_tot).
 
     Returns:
         binned spectra of contribution from each nucleus
@@ -200,7 +196,6 @@ def calculate_almost_isotropic_incoherent_spectra(
 
     metadata = {
         "method": "almost-isotropic incoherent",
-        "cross sections": ("incoherent + coherent" if apply_cross_section else "none"),
         "line_data": [
             {
                 "atom_index": i,
@@ -218,8 +213,6 @@ def calculate_almost_isotropic_incoherent_spectra(
         ],
     }
     spectra = Spectrum1DCollection(x_data=bins, y_data=y_data, metadata=metadata)
-    if apply_cross_section:
-        spectra = apply_weights(spectra)
     return spectra
 
 
@@ -229,7 +222,7 @@ def calculate_almost_isotropic_incoherent_combination_spectra(
     atomic_displacements: Quantity,
     nominal_q2: Quantity,
     bins: Quantity,
-    apply_cross_section: bool = True,
+    apply_cross_section: bool = False,
 ) -> Spectrum1DCollection:
     """Calculate two-phonon intensities in almost-isotropic incoherent approximation.
 
@@ -303,7 +296,7 @@ def q_scaling_almost_isotropic_incoherent_combination_spectra(
     atomic_displacements: Quantity,
     nominal_q2: Quantity,
     bins: Quantity,
-    apply_cross_section: bool = True,
+    apply_cross_section: bool = False,
 ) -> Spectrum1DCollection:
     """Calculate two-phonon intensities in almost-isotropic incoherent approximation.
 
@@ -390,7 +383,7 @@ def mantid_like_combination_spectra(
     atomic_displacements: Quantity,
     nominal_q2: Quantity,
     bins: Quantity,
-    apply_cross_section: bool = True,
+    apply_cross_section: bool = False,
 ) -> Spectrum1DCollection:
     """Calculate two-phonon intensities with approximations from Abins-Mantid.
 
@@ -478,7 +471,7 @@ def _bin_combination_modes(
     modes: QpointPhononModes,
     intensities: np.ndarray,
     bins: Quantity,
-    apply_cross_section: bool = True,
+    apply_cross_section: bool = False,
 ) -> Quantity:
     """Bin intensities corresponding to QpointPhononModes to 1D spectra.
 
