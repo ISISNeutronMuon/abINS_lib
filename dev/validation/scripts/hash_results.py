@@ -21,14 +21,14 @@ def main():
         ("data", "ethanol_qpoint_phonon_modes.json"),
     ]
     
-    print("\n--- Pooch Registry Format ---")
+    print("# Validation data registry")
     for subdir, filename in files_to_hash:
         file_path = validation_dir / subdir / filename
         if file_path.is_file():
             hash_val = sha256sum(file_path)
-            print(f'"{filename}": "{hash_val}",')
+            print(f"{filename} {hash_val}")
         else:
-            print(f'"{filename}": "NOT FOUND",')
+            print(f"Warning: {filename} not found in {subdir}/", file=sys.stderr)
 
 if __name__ == "__main__":
     main()

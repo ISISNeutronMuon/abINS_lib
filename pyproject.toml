@@ -51,6 +51,9 @@ source = ["src"]
 [tool.setuptools.packages.find]
 where =  ["src"]
 
+[tool.setuptools.package-data]
+abinslib = ["*.txt"]
+
 [tool.pytest]
 addopts = ["--import-mode=importlib"]
 minversion = "9.0"

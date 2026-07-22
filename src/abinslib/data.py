@@ -12,46 +12,24 @@ if TYPE_CHECKING:
 def _setup_ref_data() -> Pooch:
     import pooch
 
-    return pooch.create(
+    reference_registry = pooch.create(
         path=pooch.os_cache("abinslib"),
-        base_url=(
-            "https://github.com/pace-neutrons/Euphonic/raw/"
-            "master/tests_and_analysis/test/data/"
-        ),
-        registry={
-            "NaH.phonon": (
-                "ccb30647b5cc9a2f3ab470dda77bc6f3ccc19cb1b8adaf35f5c40ccdaabccde1"
-            ),
-        },
-        urls={
-            "NaH.phonon": (
-                "https://github.com/pace-neutrons/Euphonic/raw/master/"
-                "tests_and_analysis/test/data/castep_files/NaH/NaH.phonon"
-            ),
-        },
+        base_url="",  # URLs are defined inline in registry.txt
+        registry=None,
     )
+    reference_registry.load_registry(Path(__file__).with_name("registry.txt"))
+    return reference_registry
 
 def _setup_validation_data() -> Pooch:
     import pooch
 
-    return pooch.create(
+    validation_registry = pooch.create(
         path=pooch.os_cache("abinslib-validation"),
-        base_url="https://github.com/isisneutronmuon/abINS_lib/releases/download/validation-data-v1/",
-        registry={
-            "ethanol_mantid_isotropic_fundamentals.json": (
-                "8d8a1fbe71e1d3ad98db96b9491da3e2d3464aa23bd0cec5c5da375b2f9ef30d"
-            ),
-            "ethanol_mantid_almost_isotropic_fundamentals.json": (
-                "935abbea3534b76245b827a7c040f671510118a1800f9251f07dcd03e5b218d7"
-            ),
-            "ethanol_mantid_second_order.json": (
-                "99f7daa152fcb626c18cd56f4d2a225b02d72ea5ee386ccc8017234fcad9a5b3"
-            ),
-            "ethanol_qpoint_phonon_modes.json": (
-                "c0c3f306e44acec8db746e8e64c1af9936015759f0f76fe10e2d94101ad7a7f9"
-            ),
-        },
+        base_url="https://github.com/ISISNeutronMuon/abINS_lib/releases/download/validation-data-v1/",
+        registry=None,
     )
+    validation_registry.load_registry(Path(__file__).with_name("registry_validation.txt"))
+    return validation_registry
 
 
 

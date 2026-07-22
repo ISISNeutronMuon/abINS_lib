@@ -1,61 +1,83 @@
-name: Validation
+name: Generate Validation Data
 
 on:
   workflow_dispatch:
-    inputs:
-      ref:
-        description: "Target branch"
-        required: true
-        type: string
-      json:
-        description: "Include JSON in artifact"
-        required: true
-        type: boolean
-        default: false
-      commit:
-        description: "Add/commit generated plots to branch"
-        require: true
-        type: boolean
-        default: false
 
 jobs:
-  snakemake:
+  validate-data:
     runs-on: ubuntu-latest
-
     steps:
-      - uses: actions/checkout@v6
-        with:
-          ref: ${{ inputs.ref }}
-          fetch-tags: true
-          fetch-depth: 0
+      - uses: actions/checkout@v7
 
-      - uses: conda-incubator/setup-miniconda@v3
+      - name: Setup Pixi
+        uses: prefix-dev/setup-pixi@v0.10.0
         with:
-          environment-file: dev/snakemake.yml
-          miniforge-version: latest
+          pixi-version: v0.32.1
+          manifest-path: dev/validation/pixi.toml
 
-      - name: "Run snakemake"
-        shell: bash -l {0}
+      - name: Generate Mantid JSON Data
+        working-directory: dev/validation
+        run: pixi run generate
+
+      - name: Generate New Hashes
+        id: hashes
+        working-directory: dev/validation
         run: |
-          snakemake --directory dev/validation --snakefile dev/validation/workflow/Snakefile --sdm conda -c 4
+          echo "NEW_HASHES<<EOF" >> $GITHUB_ENV
+          pixi run hashes >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
 
-      - name: "Save plot as artifact"
-        if: ${{ ! inputs.json }}
+      - name: Check against Reference Registry
+        # Compare the newly generated hashes against the ones currently stored in registry_validation.txt
+        run: |
+          echo "Comparing newly generated hashes with src/abinslib/registry_validation.txt..."
+
+          python -c '
+          import os, sys
+          new_hashes_str = os.environ.get("NEW_HASHES", "")
+
+          new_hashes = {}
+          for line in new_hashes_str.splitlines():
+              if not line or line.startswith("#"):
+                  continue
+              parts = line.split()
+              if len(parts) >= 2:
+                  new_hashes[parts[0]] = parts[1]
+
+          with open("src/abinslib/registry_validation.txt") as f:
+              reg = {}
+              for line in f:
+                  if not line.strip() or line.startswith("#"):
+                      continue
+                  parts = line.split()
+                  if len(parts) >= 2:
+                      reg[parts[0]] = parts[1]
+
+          mismatches = []
+          for filename, new_hash in new_hashes.items():
+              old_hash = reg.get(filename)
+              if old_hash != new_hash:
+                  mismatches.append(f"{filename} (Old: {old_hash} -> New: {new_hash})")
+
+          if mismatches:
+              print("❌ MISMATCH DETECTED: The generated data differs from the reference registry!")
+              for m in mismatches:
+                  print(f"  - {m}")
+              print("If these changes are expected, update registry with `pixi run hashes > src/abinslib/registry_validation.txt` locally, and create a new GitHub release to host the files.")
+              sys.exit(1)
+          else:
+              print("✅ Success: Newly generated data matches the reference hashes.")
+          '
+
+      - name: Archive JSON Data
+        if: always()
+        working-directory: dev/validation
+        run: pixi run archive
+
+      - name: Upload Validation Data Archive
+        if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: Validation results
-          path: 'dev/validation/results/*.png'
-
-      - name: "Save all results as artifact"
-        if: ${{ inputs.json }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: Validation results
-          path: 'dev/validation/results'
-
-      - name: Commit updated plots
-        if: ${{ inputs.commit }}
-        uses: EndBug/add-and-commit@v9
-        with:
-          add: 'dev/validation/results/*.png'
-          message: 'Update validation plots'
+          name: validation-data-v1
+          path: dev/validation/validation-data-v1.zip
+          retention-days: 14
