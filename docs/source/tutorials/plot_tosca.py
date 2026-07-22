@@ -110,6 +110,7 @@ spectra = fundamentals + second_order
 # cross-sections here — as opposed to a separate calculation of coherent
 # intensities.
 from abinslib.util import apply_weights
+
 spectra = apply_weights(spectra, key="scattering_cross_section")
 
 # %%
@@ -137,6 +138,7 @@ ax.set_title("TOSCA spectrum (by element)")
 def set_labels(ax, spectrum) -> None:
     ax.set_xlabel(f"Energy transfer / {spectrum.x_data.units:~^P}")
     ax.set_ylabel(f"Intensity / {spectrum.y_data.units:~^P}")
+
 
 set_labels(ax, spectra)
 
