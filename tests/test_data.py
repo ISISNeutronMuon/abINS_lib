@@ -21,11 +21,11 @@ def test_get_data():
 
 
 def test_pooch_import_handler(monkeypatch):
-    """Check _EUPHONIC_TEST_DATA would be set to None if no pooch available"""
+    """Check _get_pooch_or_none returns None if no pooch available"""
     monkeypatch.setitem(sys.modules, "pooch", None)
 
-    assert abinslib.data._ref_data_or_none() is None
-    assert abinslib.data._validation_data_or_none() is None
+    assert abinslib.data._get_pooch_or_none(abinslib.data._setup_ref_data) is None
+    assert abinslib.data._get_pooch_or_none(abinslib.data._setup_validation_data) is None
 
 
 def test_missing_pooch_error(monkeypatch):
