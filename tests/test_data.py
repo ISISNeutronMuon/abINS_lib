@@ -20,6 +20,21 @@ def test_get_data():
         assert header == "BEGIN header"
 
 
+def test_validation_registry_entries():
+    """Verify that reference registries load expected files into Pooch."""
+    pytest.importorskip("pooch")
+
+    ref_data = abinslib.data._EUPHONIC_TEST_DATA
+    val_data = abinslib.data._VALIDATION_DATA
+
+    assert ref_data is not None
+    assert "NaH.phonon" in ref_data.registry
+
+    assert val_data is not None
+    assert "ethanol_mantid_isotropic_fundamentals.json" in val_data.registry
+    assert "ethanol_qpoint_phonon_modes.json" in val_data.registry
+
+
 def test_pooch_import_handler(monkeypatch):
     """Check _get_pooch_or_none returns None if no pooch available"""
     monkeypatch.setitem(sys.modules, "pooch", None)
@@ -55,12 +70,12 @@ def test_get_validation_data_pooch(monkeypatch):
     """Check that get_validation_data falls back to pooch if local file missing."""
     pytest.importorskip("pooch")
 
-    # Mock the pooch fetch method
-    class MockPooch:
-        def fetch(self, filename):
-            return f"/mock/pooch/path/{filename}"
-
-    monkeypatch.setattr(abinslib.data, "_VALIDATION_DATA", MockPooch())
+    # Mock fetch on the real Pooch object to verify registry lookup passes
+    monkeypatch.setattr(
+        abinslib.data._VALIDATION_DATA,
+        "fetch",
+        lambda filename: f"/mock/pooch/path/{filename}",
+    )
 
     path = abinslib.data.get_validation_data(
         "ethanol_mantid_isotropic_fundamentals.json", search_dirs=[]

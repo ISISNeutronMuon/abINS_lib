@@ -11,9 +11,7 @@ if TYPE_CHECKING:
     from pooch import Pooch
 
 
-def _get_registry(
-    cache_name: str, registry_filename: str, base_url: str = ""
-) -> Pooch:
+def _get_registry(cache_name: str, registry_filename: str, base_url: str = "") -> Pooch:
     import pooch
 
     pooch_registry = pooch.create(
