@@ -69,7 +69,11 @@ def test_get_validation_data_pooch(monkeypatch):
 
 
 def test_validation_search_dirs_zipped_fallback(monkeypatch):
-    """Simulate what happens if importlib.resources.files returns an object without .parents"""
+    """Simulate importlib.resources.files return without .parents
+
+    This is expected when working from a zipped package build, but testing is
+    usually run from an editable install.
+    """
     import importlib.resources
     import io
 
