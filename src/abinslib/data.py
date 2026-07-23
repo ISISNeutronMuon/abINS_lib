@@ -11,18 +11,20 @@ if TYPE_CHECKING:
     from pooch import Pooch
 
 
-def _get_registry(cache_name: str, registry_filename: str, base_url: str = "") -> Pooch:
+def _get_registry(
+    cache_name: str, registry_filename: str, base_url: str = ""
+) -> Pooch:
     import pooch
 
     pooch_registry = pooch.create(
-        path=pooch.os_cache("abinslib"),
+        path=pooch.os_cache(cache_name),
         base_url=base_url,
         registry=None,
     )
     registries = importlib.resources.files("abinslib.registries")
-    registry_path = registries.joinpath("registry.txt")
-    with registry_path.open("r") as f:
-        pooch_registry.load_registry(f)
+    registry_path = registries.joinpath(registry_filename)
+    with registry_path.open("r") as fd:
+        pooch_registry.load_registry(fd)
     return pooch_registry
 
 
