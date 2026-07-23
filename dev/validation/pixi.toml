@@ -1,7 +1,7 @@
-[workspace]
+[project]
 authors = ["Adam J. Jackson <a.j.jackson@physics.org>"]
 channels = ["mantid", "conda-forge", "bioconda", "nodefaults"]
-name = "validation"
+name = "validation-data"
 platforms = ["linux-64", "osx-arm64"]
 version = "0.1.0"
 
