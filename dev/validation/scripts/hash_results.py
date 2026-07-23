@@ -1,36 +1,35 @@
+"""Compute SHA256 checksums for validation files."""
+
 import hashlib
+from itertools import chain
 from pathlib import Path
 import sys
 
 
-def sha256sum(filename):
-    h = hashlib.sha256()
-    b = bytearray(128 * 1024)
-    mv = memoryview(b)
-    with open(filename, "rb", buffering=0) as f:
-        while n := f.readinto(mv):
-            h.update(mv[:n])
-    return h.hexdigest()
+def sha256sum(filename: Path) -> str:
+    """Compute SHA256 hex digest for a file."""
+    with open(filename, "rb") as fd:
+        return hashlib.file_digest(fd, "sha256").hexdigest()
 
 
 def main():
+    """Print validation data registry format."""
     validation_dir = Path(__file__).parent.parent
 
-    files_to_hash = [
-        ("results", "ethanol_mantid_isotropic_fundamentals.json"),
-        ("results", "ethanol_mantid_almost_isotropic_fundamentals.json"),
-        ("results", "ethanol_mantid_second_order.json"),
-        ("data", "ethanol_qpoint_phonon_modes.json"),
-    ]
+    json_files = sorted(
+        chain(
+            validation_dir.glob("results/*.json"),
+            validation_dir.glob("data/*.json"),
+        )
+    )
+
+    if not json_files:
+        print("Warning: No JSON validation files found", file=sys.stderr)
 
     print("# Validation data registry")
-    for subdir, filename in files_to_hash:
-        file_path = validation_dir / subdir / filename
-        if file_path.is_file():
-            hash_val = sha256sum(file_path)
-            print(f"{filename} {hash_val}")
-        else:
-            print(f"Warning: {filename} not found in {subdir}/", file=sys.stderr)
+    for file_path in json_files:
+        hash_val = sha256sum(file_path)
+        print(f"{file_path.name} {hash_val}")
 
 
 if __name__ == "__main__":
