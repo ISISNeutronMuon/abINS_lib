@@ -110,7 +110,7 @@ plot_validation_comparison(
 # %%
 # Almost-Isotropic Fundamentals
 # -----------------------------
-# For the almost-isotropic fundamentals, the $Q^2$ scaling relies on the 
+# For the almost-isotropic fundamentals, the $Q^2$ scaling relies on the
 # individual mode frequencies rather than the binned energy transfer centres.
 
 mantid_almost_iso_file = get_validation_data(

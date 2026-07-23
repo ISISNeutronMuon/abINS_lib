@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from pooch import Pooch
 
+
 def _setup_ref_data() -> Pooch:
     import pooch
 
@@ -20,6 +21,7 @@ def _setup_ref_data() -> Pooch:
     reference_registry.load_registry(Path(__file__).with_name("registry.txt"))
     return reference_registry
 
+
 def _setup_validation_data() -> Pooch:
     import pooch
 
@@ -28,9 +30,10 @@ def _setup_validation_data() -> Pooch:
         base_url="https://github.com/ISISNeutronMuon/abINS_lib/releases/download/validation-data-v1/",
         registry=None,
     )
-    validation_registry.load_registry(Path(__file__).with_name("registry_validation.txt"))
+    validation_registry.load_registry(
+        Path(__file__).with_name("registry_validation.txt")
+    )
     return validation_registry
-
 
 
 def _get_pooch_or_none(setup_func: Callable[[], Pooch]) -> Pooch | None:
@@ -59,7 +62,7 @@ def get_data(filename: str) -> Path:
 
 def get_validation_data(filename: str) -> Path:
     """Get validation reference data by filename.
-    
+
     If the file exists locally in 'dev/validation/results' (relative to
     the project root), it is used as a priority over the remote archive.
     """

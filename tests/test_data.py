@@ -25,7 +25,9 @@ def test_pooch_import_handler(monkeypatch):
     monkeypatch.setitem(sys.modules, "pooch", None)
 
     assert abinslib.data._get_pooch_or_none(abinslib.data._setup_ref_data) is None
-    assert abinslib.data._get_pooch_or_none(abinslib.data._setup_validation_data) is None
+    assert (
+        abinslib.data._get_pooch_or_none(abinslib.data._setup_validation_data) is None
+    )
 
 
 def test_missing_pooch_error(monkeypatch):
@@ -54,16 +56,21 @@ def test_get_validation_data_local(tmp_path, monkeypatch):
 
     monkeypatch.setattr(abinslib.data, "__file__", str(fake_module_file))
 
-    path = abinslib.data.get_validation_data("ethanol_mantid_isotropic_fundamentals.json")
+    path = abinslib.data.get_validation_data(
+        "ethanol_mantid_isotropic_fundamentals.json"
+    )
     assert path == fake_file
     assert path.read_text() == "dummy"
+
 
 def test_get_validation_data_pooch(monkeypatch):
     """Check that get_validation_data falls back to pooch if local file missing."""
     pytest.importorskip("pooch")
 
     # Force local file to not exist
-    monkeypatch.setattr(abinslib.data, "__file__", "/does/not/exist/src/abinslib/data.py")
+    monkeypatch.setattr(
+        abinslib.data, "__file__", "/does/not/exist/src/abinslib/data.py"
+    )
 
     # Mock the pooch fetch method
     class MockPooch:
@@ -72,6 +79,7 @@ def test_get_validation_data_pooch(monkeypatch):
 
     monkeypatch.setattr(abinslib.data, "_VALIDATION_DATA", MockPooch())
 
-    path = abinslib.data.get_validation_data("ethanol_mantid_isotropic_fundamentals.json")
+    path = abinslib.data.get_validation_data(
+        "ethanol_mantid_isotropic_fundamentals.json"
+    )
     assert str(path) == "/mock/pooch/path/ethanol_mantid_isotropic_fundamentals.json"
-
