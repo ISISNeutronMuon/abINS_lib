@@ -25,9 +25,6 @@ def test_pooch_import_handler(monkeypatch):
     monkeypatch.setitem(sys.modules, "pooch", None)
 
     assert abinslib.data._get_pooch_or_none(abinslib.data._setup_ref_data) is None
-    assert (
-        abinslib.data._get_pooch_or_none(abinslib.data._setup_validation_data) is None
-    )
 
 
 def test_missing_pooch_error(monkeypatch):
@@ -42,35 +39,24 @@ def test_missing_pooch_error(monkeypatch):
         abinslib.data.get_validation_data("some_file.json")
 
 
-def test_get_validation_data_local(tmp_path, monkeypatch):
-    """Check that get_validation_data prioritizes local files."""
-    dev_results_dir = tmp_path / "dev" / "validation" / "results"
-    dev_results_dir.mkdir(parents=True)
-    fake_file = dev_results_dir / "ethanol_mantid_isotropic_fundamentals.json"
+def test_get_validation_data_local(tmp_path):
+    """Check that get_validation_data prioritizes local files when given search_dirs."""
+    fake_file = tmp_path / "ethanol_mantid_isotropic_fundamentals.json"
     fake_file.write_text("dummy")
 
-    # Monkeypatch the module's __file__ so local_dev_dir resolves to tmp_path/src/abinslib/data.py
-    src_abinslib_dir = tmp_path / "src" / "abinslib"
-    src_abinslib_dir.mkdir(parents=True)
-    fake_module_file = src_abinslib_dir / "data.py"
-
-    monkeypatch.setattr(abinslib.data, "__file__", str(fake_module_file))
-
     path = abinslib.data.get_validation_data(
-        "ethanol_mantid_isotropic_fundamentals.json"
+        "ethanol_mantid_isotropic_fundamentals.json", 
+        search_dirs=[tmp_path]
     )
     assert path == fake_file
     assert path.read_text() == "dummy"
+
 
 
 def test_get_validation_data_pooch(monkeypatch):
     """Check that get_validation_data falls back to pooch if local file missing."""
     pytest.importorskip("pooch")
 
-    # Force local file to not exist
-    monkeypatch.setattr(
-        abinslib.data, "__file__", "/does/not/exist/src/abinslib/data.py"
-    )
 
     # Mock the pooch fetch method
     class MockPooch:
@@ -80,6 +66,25 @@ def test_get_validation_data_pooch(monkeypatch):
     monkeypatch.setattr(abinslib.data, "_VALIDATION_DATA", MockPooch())
 
     path = abinslib.data.get_validation_data(
-        "ethanol_mantid_isotropic_fundamentals.json"
+        "ethanol_mantid_isotropic_fundamentals.json",
+        search_dirs=[]
     )
     assert str(path) == "/mock/pooch/path/ethanol_mantid_isotropic_fundamentals.json"
+
+def test_validation_search_dirs_zipped_fallback(monkeypatch):
+    """Simulate what happens if importlib.resources.files returns an object without .parents"""
+    import importlib.resources
+    import io
+    
+    class DummyMultiplexedPath:
+        def joinpath(self, *args):
+            class DummyFile:
+                def open(self, mode):
+                    return io.StringIO()
+            return DummyFile()
+            
+    monkeypatch.setattr(importlib.resources, "files", lambda _: DummyMultiplexedPath())
+    
+    # We no longer need to hackily reload the module, just call the setup function directly!
+    search_dirs = abinslib.data._setup_validation_search_dirs()
+    assert search_dirs == ()

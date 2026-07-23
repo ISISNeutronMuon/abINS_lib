@@ -52,7 +52,7 @@ source = ["src"]
 where =  ["src"]
 
 [tool.setuptools.package-data]
-abinslib = ["*.txt"]
+abinslib = ["**/*.txt"]
 
 [tool.pytest]
 addopts = ["--import-mode=importlib"]

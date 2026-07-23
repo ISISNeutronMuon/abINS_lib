@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
+import importlib.resources
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -18,7 +19,10 @@ def _setup_ref_data() -> Pooch:
         base_url="",  # URLs are defined inline in registry.txt
         registry=None,
     )
-    reference_registry.load_registry(Path(__file__).with_name("registry.txt"))
+    registries = importlib.resources.files("abinslib.registries")
+    registry_path = registries.joinpath("registry.txt")
+    with registry_path.open("r") as f:
+        reference_registry.load_registry(f)
     return reference_registry
 
 
@@ -30,9 +34,10 @@ def _setup_validation_data() -> Pooch:
         base_url="https://github.com/ISISNeutronMuon/abINS_lib/releases/download/validation-data-v1/",
         registry=None,
     )
-    validation_registry.load_registry(
-        Path(__file__).with_name("registry_validation.txt")
-    )
+    registries = importlib.resources.files("abinslib.registries")
+    registry_path = registries.joinpath("registry_validation.txt")
+    with registry_path.open("r") as f:
+        validation_registry.load_registry(f)
     return validation_registry
 
 
@@ -47,6 +52,25 @@ def _get_pooch_or_none(setup_func: Callable[[], Pooch]) -> Pooch | None:
 _EUPHONIC_TEST_DATA: Pooch | None = _get_pooch_or_none(_setup_ref_data)
 _VALIDATION_DATA: Pooch | None = _get_pooch_or_none(_setup_validation_data)
 
+def _setup_validation_search_dirs() -> tuple[Path, ...]:
+    """Determine fallback search directories relative to the source tree if available.
+    
+    When installed from a wheel/sdist or as a zipped egg, these dev/ paths will not
+    exist, but pathlib handles non-existent paths gracefully during `.is_file()` checks.
+    """
+    _pkg_path = importlib.resources.files("abinslib")
+
+    # If _pkg_path is a zipfile/MultiplexedPath, we cannot safely use parents[1].
+    # We check if it has the standard pathlib `parents` attribute.
+    if hasattr(_pkg_path, "parents"):
+        return (
+            _pkg_path.parents[1] / "dev" / "validation" / "results",
+            _pkg_path.parents[1] / "dev" / "validation" / "data",
+        )
+    return ()
+
+VALIDATION_SEARCH_DIRS = _setup_validation_search_dirs()
+
 
 def get_data(filename: str) -> Path:
     """Get external reference data by filename."""
@@ -60,19 +84,19 @@ def get_data(filename: str) -> Path:
     return Path(_EUPHONIC_TEST_DATA.fetch(filename))
 
 
-def get_validation_data(filename: str) -> Path:
+def get_validation_data(
+    filename: str,
+    search_dirs: Iterable[Path | str] = VALIDATION_SEARCH_DIRS,
+) -> Path:
     """Get validation reference data by filename.
 
-    If the file exists locally in 'dev/validation/results' (relative to
-    the project root), it is used as a priority over the remote archive.
+    If `search_dirs` is provided, those directories are checked first.
+    It defaults to checking the local development directories (e.g., 
+    'dev/validation/results' relative to the package root).
+    If the file is not found locally, it falls back to the Pooch remote archive.
     """
-    # First, try to find it locally
-    root_dir = Path(__file__).parent.parent.parent
-    local_results_dir = root_dir / "dev" / "validation" / "results"
-    local_data_dir = root_dir / "dev" / "validation" / "data"
-
-    for search_dir in (local_results_dir, local_data_dir):
-        local_path = search_dir / filename
+    for search_dir in search_dirs:
+        local_path = (Path(search_dir) / filename).resolve()
         if local_path.is_file():
             return local_path
 
