@@ -41,14 +41,15 @@ are not necessarily validated against an ideal or external reference.
 
 ## Validation status
 
-So far we have implemented the simplest possible calculation from
-Mantid-Abins: a 1D fundamental spectrum in the fully-isotropic
-approximation. This is benchmarked against the equivalent calculation
-in Mantid by a Snakemake workflow in *dev/validation*:
+So far we have implemented some of the calculation methods from
+Mantid-Abins: 1D fundamental spectra in the fully-isotropic and
+almost-isotropic incoherent approximation, and 1D second-order spectra
+in the almost-isotropic incoherent approximation. This is benchmarked
+against the equivalent calculation in Mantid: a Snakemake workflow in
+*dev/validation* is used to produce reference data, and this is
+plotted against abinslib calculations in the documentation gallery.
 
-![](dev/validation/results/isotropic-plot.png)
-![](dev/validation/results/almost-isotropic-plot.png)
-![](dev/validation/results/second-order-plot.png)
+**TODO: insert link, preferably with image**:
 
 To reproduce the result so closely it was necessary to apply similar
 implementation details: the `q_scaling_isotropic_incoherent_spectra`
