@@ -1,7 +1,5 @@
 """Utility functions, not specific to one calculation type."""
 
-from __future__ import annotations
-
 from importlib.metadata import PackageNotFoundError, version
 
 from euphonic import Quantity
