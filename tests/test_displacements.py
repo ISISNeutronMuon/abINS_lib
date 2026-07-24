@@ -2,6 +2,7 @@
 
 from itertools import product
 import json
+import warnings
 
 from euphonic import Quantity
 import numpy as np
@@ -137,7 +138,9 @@ def test_displacements_from_json_validation(
     # 7. DEVELOPMENT build returns early without issuing version warnings
     monkeypatch.setattr("abinslib.io.get_version", lambda: "DEVELOPMENT")
     newer_dev_data = data_dict | {"__abinslib_version__": "99.0.0"}
-    Displacements.from_json(json.dumps(newer_dev_data))
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        Displacements.from_json(json.dumps(newer_dev_data))
 
 
 @pytest.mark.parametrize(
