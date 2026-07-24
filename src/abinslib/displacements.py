@@ -249,4 +249,7 @@ def _calculate_mode_displacements(
         evec_tensors,
     )
 
-    return Quantity(mode_displacements, "bohr**2").to("angstrom**2")
+    mode_displacements = Quantity(mode_displacements, "bohr**2").to(
+        modes.crystal.cell_vectors_unit + "**2"
+    )
+    return mode_displacements
