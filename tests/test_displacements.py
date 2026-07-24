@@ -217,14 +217,14 @@ def test_a_abins_ref(modes, ref_npz) -> None:
 
 
 @pytest.mark.parametrize(
-    ("modes", "ref_npz", "temperature_k"),
+    ("modes", "temperature_k", "ref_npz"),
     [
-        ("GaSb", "GaSb_abins_0k_B.npz", 0),
-        ("GaSb", "GaSb_abins_100k_B.npz", 100),
+        ("GaSb", 0, "GaSb_abins_0k_B.npz"),
+        ("GaSb", 100, "GaSb_abins_100k_B.npz"),
     ],
     indirect=("modes", "ref_npz"),
 )
-def test_displacements_abins_ref(modes, ref_npz, temperature_k) -> None:
+def test_displacements_abins_ref(modes, temperature_k, ref_npz) -> None:
     """Check calculated displacements against Mantid-Abins reference
 
     Note that as in ADP there seems to be a factor two difference as Mantid
