@@ -1,6 +1,7 @@
 """Unit tests for abinslib.displacements module"""
 
 from itertools import product
+import json
 
 from euphonic import Quantity
 import numpy as np
@@ -8,25 +9,129 @@ from numpy.testing import assert_allclose
 import pytest
 
 from abinslib.displacements import Displacements
+from abinslib.util import get_version
 
 
-def test_displacements(rng):
+@pytest.fixture
+def sample_displacements_kwargs(rng):
+    """Sample kwargs for creating a Displacements instance."""
+    return {
+        "displacements": Quantity(rng.random((2, 4, 5, 3, 3)), "bohr**2"),
+        "weights": np.array((0.2, 0.8)),
+        "bose_n": rng.random((2, 4)),
+        "temperature": Quantity(10, "K"),
+    }
+
+
+def assert_displacements_equal(actual: Displacements, expected: Displacements) -> None:
+    """Assert two Displacements objects are equivalent."""
+    assert actual.displacements.units == expected.displacements.units
+    assert_allclose(actual.displacements.magnitude, expected.displacements.magnitude)
+    assert_allclose(actual.weights, expected.weights)
+    assert_allclose(actual.bose_n, expected.bose_n)
+    assert actual.temperature == expected.temperature
+
+
+def test_displacements(sample_displacements_kwargs):
     """Self-consistency check of displacements properties"""
+    displacements = Displacements(**sample_displacements_kwargs)
 
-    displacements = Displacements(
-        displacements=rng.random((2, 4, 5, 3, 3)),
-        weights=np.array((0.2, 0.8)),
-        bose_n=rng.random((2, 4)),
-        temperature=Quantity(10, "K"),
+    assert_allclose(
+        (displacements.n / displacements.one).magnitude[:, :, 0, 0, 0],
+        displacements.bose_n,
     )
 
     assert_allclose(
-        (displacements.n / displacements.one)[:, :, 0, 0, 0], displacements.bose_n
+        (displacements.two_n_plus_one - displacements.one).magnitude,
+        (displacements.n * 2.0).magnitude,
     )
 
-    assert_allclose(
-        displacements.two_n_plus_one - displacements.one, displacements.n * 2.0
-    )
+
+def test_displacements_to_dict_and_json(tmp_path, sample_displacements_kwargs):
+    """Test serialization of Displacements to dict, JSON string, and JSON file"""
+    displacements = Displacements(**sample_displacements_kwargs)
+
+    data_dict = displacements.to_dict()
+    assert isinstance(data_dict, dict)
+    assert data_dict["displacements_unit"] == "bohr ** 2"
+    assert data_dict["temperature"] == 10.0
+    assert data_dict["temperature_unit"] == "kelvin"
+    assert isinstance(data_dict["displacements"], list)
+    assert isinstance(data_dict["weights"], list)
+    assert isinstance(data_dict["bose_n"], list)
+
+    json_str = displacements.to_json()
+    data = json.loads(json_str)
+    assert data["__abinslib_class__"] == "Displacements"
+    assert data["__abinslib_version__"] == get_version()
+
+    # Test roundtrip from string
+    reloaded_str = Displacements.from_json(json_str)
+    assert_displacements_equal(reloaded_str, displacements)
+
+    # Test roundtrip from file
+    json_path = tmp_path / "displacements.json"
+    displacements.to_json_file(json_path)
+    assert json_path.is_file()
+
+    reloaded_file = Displacements.from_json_file(json_path)
+    assert_displacements_equal(reloaded_file, displacements)
+
+
+def test_displacements_from_json_validation(sample_displacements_kwargs, monkeypatch):
+    """Test validation of class name and version warnings during JSON loading."""
+    displacements = Displacements(**sample_displacements_kwargs)
+
+    # Force current version to a released version for warning checks
+    monkeypatch.setattr("abinslib.io.get_version", lambda: "0.1.0")
+
+    data_dict = displacements.to_dict()
+    data_dict["__abinslib_class__"] = "Displacements"
+    data_dict["__abinslib_version__"] = "0.1.0"
+
+    # 1. Class mismatch raises ValueError
+    bad_class_data = dict(data_dict)
+    bad_class_data["__abinslib_class__"] = "WrongClass"
+    with pytest.raises(ValueError, match="does not match expected class"):
+        Displacements.from_json(json.dumps(bad_class_data))
+
+    # 2. DEVELOPMENT version warns when running on a released version
+    dev_version_data = dict(data_dict)
+    dev_version_data["__abinslib_version__"] = "DEVELOPMENT"
+    with pytest.warns(UserWarning, match="generated with a DEVELOPMENT version"):
+        Displacements.from_json(json.dumps(dev_version_data))
+
+    # 3. Newer version warns
+    newer_version_data = dict(data_dict)
+    newer_version_data["__abinslib_version__"] = "99.0.0"
+    with pytest.warns(UserWarning, match="is newer than current abinslib version"):
+        Displacements.from_json(json.dumps(newer_version_data))
+
+    # 4. Unparseable version string raises InvalidVersion error
+    from packaging.version import InvalidVersion
+
+    invalid_version_data = dict(data_dict)
+    invalid_version_data["__abinslib_version__"] = "not_a_valid_version_!!!"
+    with pytest.raises(InvalidVersion):
+        Displacements.from_json(json.dumps(invalid_version_data))
+
+    # 5. Missing __abinslib_class__ raises ValueError
+    data_missing_class = dict(data_dict)
+    data_missing_class.pop("__abinslib_class__")
+    with pytest.raises(ValueError, match="missing required '__abinslib_class__' key"):
+        Displacements.from_json(json.dumps(data_missing_class))
+
+    # 6. Missing __abinslib_version__ raises ValueError
+    data_missing_version = dict(data_dict)
+    data_missing_version.pop("__abinslib_version__")
+    with pytest.raises(ValueError, match="missing required '__abinslib_version__' key"):
+        Displacements.from_json(json.dumps(data_missing_version))
+
+    # 7. DEVELOPMENT build returns early without issuing version warnings
+    monkeypatch.setattr("abinslib.io.get_version", lambda: "DEVELOPMENT")
+    newer_dev_data = dict(data_dict)
+    newer_dev_data["__abinslib_version__"] = "99.0.0"
+    Displacements.from_json(json.dumps(newer_dev_data))
 
 
 @pytest.mark.parametrize(
@@ -103,14 +208,14 @@ def test_a_abins_ref(modes, ref_npz) -> None:
 
 
 @pytest.mark.parametrize(
-    ("modes", "temperature_k", "ref_npz"),
+    ("modes", "ref_npz", "temperature_k"),
     [
-        ("GaSb", 0, "GaSb_abins_0k_B.npz"),
-        ("GaSb", 100, "GaSb_abins_100k_B.npz"),
+        ("GaSb", "GaSb_abins_0k_B.npz", 0),
+        ("GaSb", "GaSb_abins_100k_B.npz", 100),
     ],
     indirect=("modes", "ref_npz"),
 )
-def test_displacements_abins_ref(modes, temperature_k, ref_npz) -> None:
+def test_displacements_abins_ref(modes, ref_npz, temperature_k) -> None:
     """Check calculated displacements against Mantid-Abins reference
 
     Note that as in ADP there seems to be a factor two difference as Mantid

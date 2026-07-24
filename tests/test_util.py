@@ -1,9 +1,29 @@
+"""Unit tests for abinslib.util module"""
+
 from euphonic import Quantity
 from numpy import pi
 from numpy.testing import assert_allclose
 import pytest
 
 from abinslib.util import calculate_indirect_q2
+
+
+def test_get_version(monkeypatch):
+    """Test get_version returns installed version or 'DEVELOPMENT' fallback"""
+    from importlib.metadata import PackageNotFoundError
+
+    import abinslib.util
+
+    # Simulate installed package case
+    monkeypatch.setattr("abinslib.util.version", lambda pkg: "1.2.3")
+    assert abinslib.util.get_version() == "1.2.3"
+
+    # Simulate uninstalled package case
+    def mock_version_not_found(pkg):
+        raise PackageNotFoundError
+
+    monkeypatch.setattr("abinslib.util.version", mock_version_not_found)
+    assert abinslib.util.get_version() == "DEVELOPMENT"
 
 
 @pytest.mark.parametrize(

@@ -22,19 +22,43 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import cached_property
-from typing import TYPE_CHECKING, Self
+from typing import TYPE_CHECKING, Self, TypedDict
 
 from euphonic import Quantity
 import numpy as np
 
 from .bose import BoseOccupation, calculate_bose_factor
+from .io import JSONMixin
 
 if TYPE_CHECKING:
     from euphonic import QpointPhononModes
 
 
+class DisplacementsDict(TypedDict):
+    """JSON-friendly representation of a Displacements object.
+
+    Array indexing conventions:
+
+    ============== =======================================
+    Array          Index Order
+    ============== =======================================
+    displacements  (qpt, mode, atom, direction, direction)
+    bose_n         (qpt, mode)
+    weights        (qpt,)
+    ============== =======================================
+
+    """
+
+    displacements: list[list[list[list[list[float]]]]]
+    displacements_unit: str
+    weights: list[float]
+    bose_n: list[list[float]]
+    temperature: float
+    temperature_unit: str
+
+
 @dataclass(frozen=True)
-class Displacements:
+class Displacements(JSONMixin):
     """Phonon mode displacement dataset.
 
     This represents atomic displacements as 3x3 tensors, often denoted U or B.
@@ -70,7 +94,7 @@ class Displacements:
 
     @classmethod
     def from_modes(
-        cls: Self,
+        cls,
         modes: QpointPhononModes,
         temperature: Quantity,
         frequency_min: Quantity = Quantity(10, "cm_1"),
@@ -104,6 +128,34 @@ class Displacements:
             ),
             weights=modes.weights,
             bose_n=bose_factor,
+            temperature=temperature,
+        )
+
+    def to_dict(self) -> DisplacementsDict:
+        """Convert Displacements object to a JSON-friendly dictionary."""
+        return {
+            "displacements": self.displacements.magnitude.tolist(),
+            "displacements_unit": str(self.displacements.units),
+            "weights": self.weights.tolist(),
+            "bose_n": self.bose_n.tolist(),
+            "temperature": float(self.temperature.magnitude),
+            "temperature_unit": str(self.temperature.units),
+        }
+
+    @classmethod
+    def from_dict(cls, data_dict: DisplacementsDict) -> Self:
+        """Create a Displacements object from a JSON-friendly dictionary."""
+        displacements = Quantity(
+            np.array(data_dict["displacements"], dtype=float),
+            data_dict["displacements_unit"],
+        )
+        weights = np.array(data_dict["weights"], dtype=float)
+        bose_n = np.array(data_dict["bose_n"], dtype=float)
+        temperature = Quantity(data_dict["temperature"], data_dict["temperature_unit"])
+        return cls(
+            displacements=displacements,
+            weights=weights,
+            bose_n=bose_n,
             temperature=temperature,
         )
 
@@ -197,7 +249,4 @@ def _calculate_mode_displacements(
         evec_tensors,
     )
 
-    mode_displacements = Quantity(mode_displacements, "bohr**2").to(
-        modes.crystal.cell_vectors_unit + "**2"
-    )
-    return mode_displacements
+    return Quantity(mode_displacements, "bohr**2").to("angstrom**2")

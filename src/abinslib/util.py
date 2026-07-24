@@ -1,7 +1,19 @@
 """Utility functions, not specific to one calculation type."""
 
+from __future__ import annotations
+
+from importlib.metadata import PackageNotFoundError, version
+
 from euphonic import Quantity
 import numpy as np
+
+
+def get_version() -> str:
+    """Get package version or return 'DEVELOPMENT' if not installed."""
+    try:
+        return version("abinslib")
+    except PackageNotFoundError:
+        return "DEVELOPMENT"
 
 
 def calculate_indirect_q2(
