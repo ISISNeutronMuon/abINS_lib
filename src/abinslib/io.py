@@ -89,13 +89,9 @@ class JSONMixin(ABC):
 
     def to_json_file(self, filename: Path | str) -> None:
         """Write object representation to a JSON file."""
-        path = Path(filename)
-        with path.open("w") as fd:
-            fd.write(self.to_json())
+        Path(filename).write_text(self.to_json())
 
     @classmethod
     def from_json_file(cls, filename: Path | str) -> Self:
         """Read object representation from a JSON file."""
-        path = Path(filename)
-        with path.open("r") as fd:
-            return cls.from_json(fd.read())
+        return cls.from_json(Path(filename).read_text())
