@@ -29,7 +29,7 @@ class JSONMixin(ABC):
     def to_json(self) -> str:
         """Convert object representation to a JSON string."""
         data_dict = dict(self.to_dict())
-        data_dict["__abinslib_class__"] = self.__class__.__name__
+        data_dict["__abinslib_class__"] = type(self).__name__
         data_dict["__abinslib_version__"] = get_version()
         return json.dumps(data_dict, indent=4, sort_keys=True)
 
