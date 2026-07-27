@@ -90,54 +90,70 @@ def test_displacements_to_dict_and_json(tmp_path, sample_displacements_kwargs):
     assert_displacements_equal(reloaded_file, displacements)
 
 
+DELETE = object()
+
+
+@pytest.mark.parametrize(
+    ("replace", "expected"),
+    [
+        (
+            ("__abinslib_class__", "WrongClass"),
+            (ValueError, "does not match expected class"),
+        ),
+        (
+            ("__abinslib_class__", DELETE),
+            (ValueError, "missing required '__abinslib_class__' key"),
+        ),
+        (
+            ("__abinslib_version__", "DEVELOPMENT"),
+            (UserWarning, "generated with a DEVELOPMENT version"),
+        ),
+        (
+            ("__abinslib_version__", "99.0.0"),
+            (UserWarning, "is newer than current abinslib version"),
+        ),
+        (
+            ("__abinslib_version__", "not_a_valid_version_!!!"),
+            (InvalidVersion, None),
+        ),
+        (
+            ("__abinslib_version__", DELETE),
+            (ValueError, "missing required '__abinslib_version__' key"),
+        ),
+    ],
+    ids=lambda x: f"{x[0]}_{'DELETE' if x[1] is DELETE else x[1]}",
+)
 def test_displacements_from_json_validation(
-    sample_displacements_data_dict, monkeypatch
+    sample_displacements_data_dict, monkeypatch, replace, expected
 ):
     """Test validation of class name and version warnings during JSON loading."""
-    data_dict = sample_displacements_data_dict
+    current_version = sample_displacements_data_dict["__abinslib_version__"]
+    monkeypatch.setattr("abinslib.io.get_version", lambda: current_version)
 
-    # Set current version dynamically from fixture's version
-    monkeypatch.setattr(
-        "abinslib.io.get_version", lambda: data_dict["__abinslib_version__"]
-    )
+    key, val = replace
+    if val is DELETE:
+        del sample_displacements_data_dict[key]
+    else:
+        sample_displacements_data_dict[key] = val
 
-    # 1. Class mismatch raises ValueError
-    bad_class_data = data_dict | {"__abinslib_class__": "WrongClass"}
-    with pytest.raises(ValueError, match="does not match expected class"):
-        Displacements.from_json(json.dumps(bad_class_data))
+    json_str = json.dumps(sample_displacements_data_dict)
+    expected_cls, match_str = expected
 
-    # 2. DEVELOPMENT version warns when running on a released version
-    dev_version_data = data_dict | {"__abinslib_version__": "DEVELOPMENT"}
-    with pytest.warns(UserWarning, match="generated with a DEVELOPMENT version"):
-        Displacements.from_json(json.dumps(dev_version_data))
+    if issubclass(expected_cls, Warning):
+        ctx = pytest.warns(expected_cls, match=match_str)
+    else:
+        ctx = pytest.raises(expected_cls, match=match_str)
 
-    # 3. Newer version warns
-    newer_version_data = data_dict | {"__abinslib_version__": "99.0.0"}
-    with pytest.warns(UserWarning, match="is newer than current abinslib version"):
-        Displacements.from_json(json.dumps(newer_version_data))
+    with ctx:
+        Displacements.from_json(json_str)
 
-    # 4. Unparseable version string raises InvalidVersion error
-    invalid_version_data = data_dict | {
-        "__abinslib_version__": "not_a_valid_version_!!!"
-    }
-    with pytest.raises(InvalidVersion):
-        Displacements.from_json(json.dumps(invalid_version_data))
 
-    # 5. Missing __abinslib_class__ raises ValueError
-    data_missing_class = data_dict.copy()
-    del data_missing_class["__abinslib_class__"]
-    with pytest.raises(ValueError, match="missing required '__abinslib_class__' key"):
-        Displacements.from_json(json.dumps(data_missing_class))
-
-    # 6. Missing __abinslib_version__ raises ValueError
-    data_missing_version = data_dict.copy()
-    del data_missing_version["__abinslib_version__"]
-    with pytest.raises(ValueError, match="missing required '__abinslib_version__' key"):
-        Displacements.from_json(json.dumps(data_missing_version))
-
-    # 7. DEVELOPMENT build returns early without issuing version warnings
+def test_displacements_from_json_dev_build(
+    sample_displacements_data_dict, monkeypatch
+):
+    """Test DEVELOPMENT build does not issue JSON version warnings."""
     monkeypatch.setattr("abinslib.io.get_version", lambda: "DEVELOPMENT")
-    newer_dev_data = data_dict | {"__abinslib_version__": "99.0.0"}
+    newer_dev_data = sample_displacements_data_dict | {"__abinslib_version__": "99.0.0"}
     with warnings.catch_warnings():
         warnings.simplefilter("error")
         Displacements.from_json(json.dumps(newer_dev_data))
