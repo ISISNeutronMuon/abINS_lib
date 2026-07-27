@@ -59,7 +59,6 @@ def test_calculate_almost_isotropic_incoherent_combinations(
 
 @pytest.mark.parametrize("tosca_modes", ["GaSb"], indirect=True)
 def test_calculate_almost_isotropic_incoherent_combinations_bad_q(tosca_modes):
-
     modes = tosca_modes.modes
     a, b = tosca_modes.ab(100)
 
