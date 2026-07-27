@@ -148,9 +148,7 @@ def test_displacements_from_json_validation(
         Displacements.from_json(json_str)
 
 
-def test_displacements_from_json_dev_build(
-    sample_displacements_data_dict, monkeypatch
-):
+def test_displacements_from_json_dev_build(sample_displacements_data_dict, monkeypatch):
     """Test DEVELOPMENT build does not issue JSON version warnings."""
     monkeypatch.setattr("abinslib.io.get_version", lambda: "DEVELOPMENT")
     newer_dev_data = sample_displacements_data_dict | {"__abinslib_version__": "99.0.0"}
