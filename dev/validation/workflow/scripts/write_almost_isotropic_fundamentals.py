@@ -31,7 +31,6 @@ spectra = calculate_almost_isotropic_incoherent_spectra(
     dw,
     q2,
     bins,
-    apply_cross_section=False,
 )
 spectra = apply_weights(spectra)
 spectrum = spectra.sum()
