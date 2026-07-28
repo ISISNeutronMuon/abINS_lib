@@ -77,7 +77,7 @@ def test_calculate_indirect_q2(
 @pytest.fixture
 def h2d_spectra(rng) -> Spectrum1DCollection:
     return Spectrum1DCollection(
-        x_data=Quantity(np.linspace(0, 5, 6), "meV"),
+        x_data=Quantity(np.arange(6, dtype=float), "meV"),
         y_data=Quantity(rng.random((3, 5)), "1/meV"),
         metadata={
             "line_data": [
