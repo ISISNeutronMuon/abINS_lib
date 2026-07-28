@@ -60,35 +60,6 @@ def calculate_indirect_q2(
     return k2_i + k2_f - 2 * np.sqrt(k2_i * k2_f) * np.cos(angle)
 
 
-def apply_weights(
-    spectra: Spectrum1DCollection,
-    isotope_data: IsotopeData = sears_1992,
-    key: str = "scattering_cross_section",
-) -> Spectrum1DCollection:
-    """Apply weights to Spectrum Collection data, based on atom symbol and mass.
-
-    Initially this only supports Spectrum1DCollection, but support for
-    Spectrum2DCollection will be added as needed.
-
-    Args:
-        spectra: unweighted data including 'atom_symbol' and 'mass' metadata
-        isotope_data: neutron dataset with symbol/mass lookup capability
-        key: key for get_array() lookups in isotope_data
-
-    Returns:
-        new set of weighted spectra
-
-    """
-    atoms = _AtomSequence.from_spectra(spectra)
-    weights = isotope_data.get_array(atoms, key=key)
-
-    y_data = spectra.y_data * weights[:, None]
-
-    return Spectrum1DCollection(
-        x_data=spectra.x_data, y_data=y_data, metadata=spectra.metadata
-    )
-
-
 @dataclass
 class _AtomSequence:
     atom_type: np.ndarray
@@ -116,3 +87,32 @@ class _AtomSequence:
         atom_mass = Quantity(np.fromiter(map(float, masses), dtype=float), "amu")
 
         return cls(atom_type, atom_mass)
+
+
+def apply_weights(
+    spectra: Spectrum1DCollection,
+    isotope_data: IsotopeData = sears_1992,
+    key: str = "scattering_cross_section",
+) -> Spectrum1DCollection:
+    """Apply weights to Spectrum Collection data, based on atom symbol and mass.
+
+    Initially this only supports Spectrum1DCollection, but support for
+    Spectrum2DCollection will be added as needed.
+
+    Args:
+        spectra: unweighted data including 'atom_symbol' and 'mass' metadata
+        isotope_data: neutron dataset with symbol/mass lookup capability
+        key: key for get_array() lookups in isotope_data
+
+    Returns:
+        new set of weighted spectra
+
+    """
+    atoms = _AtomSequence.from_spectra(spectra)
+    weights = isotope_data.get_array(atoms, key=key)
+
+    y_data = spectra.y_data * weights[:, None]
+
+    return Spectrum1DCollection(
+        x_data=spectra.x_data, y_data=y_data, metadata=spectra.metadata
+    )
