@@ -87,7 +87,6 @@ fundamentals = calculate_almost_isotropic_incoherent_spectra(
     atomic_displacements=atomic_displacements,
     nominal_q2=tosca_backward_q2,
     bins=bins,
-    apply_cross_section=True,
 )
 
 second_order = mantid_like_combination_spectra(
@@ -96,10 +95,23 @@ second_order = mantid_like_combination_spectra(
     atomic_displacements,
     binned_q2,
     bins,
-    apply_cross_section=True,
 )
 
 spectra = fundamentals + second_order
+
+# %%
+# Apply neutron cross-section weights
+# -----------------------------------
+# The appropriate weights are obtained using a Euphonic IsotopeData object;
+# by default this is the Sears (1992) dataset. If we use the incoherent
+# cross-section we calculate the incoherent scattering cross-section;
+# by choosing the *total* cross-section we are making the "incoherent
+# approximation" to the full INS phonon spectrum by also including the coherent
+# cross-sections here — as opposed to a separate calculation of coherent
+# intensities.
+from abinslib.util import apply_weights
+
+spectra = apply_weights(spectra, key="scattering_cross_section")
 
 # %%
 # Plot spectra

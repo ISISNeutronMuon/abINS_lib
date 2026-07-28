@@ -6,7 +6,7 @@ from snakemake.script import snakemake
 
 from abinslib.displacements import Displacements
 from abinslib.isotropic_incoherent import q_scaling_isotropic_incoherent_spectra
-from abinslib.util import calculate_indirect_q2
+from abinslib.util import apply_weights, calculate_indirect_q2
 
 modes = QpointPhononModes.from_json_file(snakemake.input[0])
 mantid_data = Spectrum1D.from_json_file(snakemake.input[1])
@@ -24,6 +24,7 @@ q2 = calculate_indirect_q2(
 )
 
 spectra = q_scaling_isotropic_incoherent_spectra(modes, displacements, dw, q2, bins)
+spectra = apply_weights(spectra)
 spectrum = spectra.sum()
 
 spectrum.to_json_file(snakemake.output[0])

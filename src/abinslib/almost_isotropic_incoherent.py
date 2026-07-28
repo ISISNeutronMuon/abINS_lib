@@ -6,10 +6,11 @@ from euphonic import QpointPhononModes, Quantity, ureg
 from euphonic.spectra import Spectrum1DCollection
 import numpy as np
 
+from abinslib.util import iter_atom_info
+
 from .displacements import Displacements
 from .isotropic_incoherent import (
     _bin_mode_intensities,
-    _get_total_cross_sections,
     calculate_isotropic_dw_factor,
 )
 
@@ -156,7 +157,6 @@ def calculate_almost_isotropic_incoherent_spectra(
     atomic_displacements: Quantity,
     nominal_q2: Quantity,
     bins: Quantity,
-    apply_cross_section: bool = True,
 ) -> Spectrum1DCollection:
     """Calculate INS intensities in almost-isotropic incoherent approximation.
 
@@ -178,9 +178,6 @@ def calculate_almost_isotropic_incoherent_spectra(
             neutron instrument parameters.
         bins:
             Energy or frequency bins used as x_data in resulting spectra
-        apply_cross_section:
-            Multiply each atom/isotope spectrum by a corresponding total
-            neutron scattering cross-section (σ_tot).
 
     Returns:
         binned spectra of contribution from each nucleus
@@ -195,18 +192,16 @@ def calculate_almost_isotropic_incoherent_spectra(
         modes=modes,
         intensities=intensities,
         bins=bins,
-        apply_cross_section=apply_cross_section,
     )
 
     metadata = {
-        "method": "almost-isotropic incoherent approximation",
-        "cross sections": ("incoherent + coherent" if apply_cross_section else "none"),
+        "method": "almost-isotropic incoherent",
         "line_data": [
-            {"atom_index": i, "atom_symbol": symbol, "quantum_order": 1}
-            for i, symbol in enumerate(modes.crystal.atom_type)
+            item | {"quantum_order": 1} for item in iter_atom_info(modes.crystal)
         ],
     }
-    return Spectrum1DCollection(x_data=bins, y_data=y_data, metadata=metadata)
+    spectra = Spectrum1DCollection(x_data=bins, y_data=y_data, metadata=metadata)
+    return spectra
 
 
 def calculate_almost_isotropic_incoherent_combination_spectra(
@@ -215,7 +210,6 @@ def calculate_almost_isotropic_incoherent_combination_spectra(
     atomic_displacements: Quantity,
     nominal_q2: Quantity,
     bins: Quantity,
-    apply_cross_section: bool = True,
 ) -> Spectrum1DCollection:
     """Calculate two-phonon intensities in almost-isotropic incoherent approximation.
 
@@ -239,9 +233,6 @@ def calculate_almost_isotropic_incoherent_combination_spectra(
             frequency by neutron instrument parameters.
         bins:
             Energy or frequency bins used as x_data in resulting spectra
-        apply_cross_section:
-            Multiply each atom/isotope spectrum by a corresponding total
-            neutron scattering cross-section (σ_tot).
 
     Returns:
         binned spectra of contribution from each nucleus
@@ -258,15 +249,12 @@ def calculate_almost_isotropic_incoherent_combination_spectra(
         modes=modes,
         intensities=intensities,
         bins=bins,
-        apply_cross_section=apply_cross_section,
     )
 
     metadata = {
-        "method": "almost-isotropic incoherent approximation",
-        "cross sections": ("incoherent + coherent" if apply_cross_section else "none"),
+        "method": "almost-isotropic incoherent",
         "line_data": [
-            {"atom_index": i, "atom_symbol": symbol, "quantum_order": 1}
-            for i, symbol in enumerate(modes.crystal.atom_type)
+            item | {"quantum_order": 2} for item in iter_atom_info(modes.crystal)
         ],
     }
     return Spectrum1DCollection(x_data=bins, y_data=y_data, metadata=metadata)
@@ -278,7 +266,6 @@ def q_scaling_almost_isotropic_incoherent_combination_spectra(
     atomic_displacements: Quantity,
     nominal_q2: Quantity,
     bins: Quantity,
-    apply_cross_section: bool = True,
 ) -> Spectrum1DCollection:
     """Calculate two-phonon intensities in almost-isotropic incoherent approximation.
 
@@ -304,9 +291,6 @@ def q_scaling_almost_isotropic_incoherent_combination_spectra(
            abinslib.utils.calculate_indirect_q2.
         bins:
             Energy or frequency bins used as x_data in resulting spectra
-        apply_cross_section:
-            Multiply each atom/isotope spectrum by a corresponding total
-            neutron scattering cross-section (σ_tot).
 
     Returns:
         binned spectra of contribution from each nucleus
@@ -325,15 +309,12 @@ def q_scaling_almost_isotropic_incoherent_combination_spectra(
         modes=modes,
         intensities=intensities,
         bins=bins,
-        apply_cross_section=apply_cross_section,
     )
 
     metadata = {
         "method": "almost-isotropic incoherent approximation",
-        "cross sections": ("incoherent + coherent" if apply_cross_section else "none"),
         "line_data": [
-            {"atom_index": i, "atom_symbol": symbol, "quantum_order": 2}
-            for i, symbol in enumerate(modes.crystal.atom_type)
+            item | {"quantum_order": 2} for item in iter_atom_info(modes.crystal)
         ],
     }
     spectra = Spectrum1DCollection(x_data=bins, y_data=y_data, metadata=metadata)
@@ -354,7 +335,6 @@ def mantid_like_combination_spectra(
     atomic_displacements: Quantity,
     nominal_q2: Quantity,
     bins: Quantity,
-    apply_cross_section: bool = True,
 ) -> Spectrum1DCollection:
     """Calculate two-phonon intensities with approximations from Abins-Mantid.
 
@@ -383,9 +363,6 @@ def mantid_like_combination_spectra(
            abinslib.utils.calculate_indirect_q2.
         bins:
             Energy or frequency bins used as x_data in resulting spectra
-        apply_cross_section:
-            Multiply each atom/isotope spectrum by a corresponding total
-            neutron scattering cross-section (σ_tot).
 
     Returns:
         binned spectra of contribution from each nucleus
@@ -416,7 +393,6 @@ def mantid_like_combination_spectra(
             atomic_displacements=atomic_displacements,
             nominal_q2=nominal_q2,
             bins=bins,
-            apply_cross_section=apply_cross_section,
         )
 
         # Apply a couple of quirks from Mantid-Abins implementation:
@@ -442,7 +418,6 @@ def _bin_combination_modes(
     modes: QpointPhononModes,
     intensities: np.ndarray,
     bins: Quantity,
-    apply_cross_section: bool = True,
 ) -> Quantity:
     """Bin intensities corresponding to QpointPhononModes to 1D spectra.
 
@@ -460,13 +435,8 @@ def _bin_combination_modes(
             "scaling between order-1 and order-2 spectra."
         )
 
-    if apply_cross_section:
-        atom_weights = _get_total_cross_sections(modes.crystal).to("barn").magnitude
-    else:
-        atom_weights = np.ones_like(modes.crystal.atom_mass)
-
     weighted_intensities = np.einsum(
-        "i,k,m,ijklm->ijklm", modes.weights, modes.weights, atom_weights, intensities
+        "i,k,ijklm->ijklm", modes.weights, modes.weights, intensities
     )
 
     frequencies = modes.frequencies.to(bins.units).magnitude
@@ -495,5 +465,4 @@ def _bin_combination_modes(
         y_data[atom_index] = y_q_atom
 
     # Apply correct spectral scaling / units
-    y_data = y_data * ureg("barn") / bin_width
-    return y_data
+    return y_data / bin_width

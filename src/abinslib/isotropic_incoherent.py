@@ -4,21 +4,16 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from euphonic import Quantity, ureg
-from euphonic.crystal import Crystal
+from euphonic import Quantity
 from euphonic.spectra import Spectrum1DCollection
 import numpy as np
+
+from abinslib.util import iter_atom_info
 
 if TYPE_CHECKING:
     from euphonic import QpointPhononModes
 
     from . import Displacements
-
-
-def _get_total_cross_sections(crystal: Crystal) -> Quantity:
-    from euphonic.isotopes import sears_1992
-
-    return sears_1992.get_array(crystal, "scattering_cross_section")
 
 
 def calculate_isotropic_incoherent_fundamentals(
@@ -90,7 +85,6 @@ def _bin_mode_intensities(
     modes: QpointPhononModes,
     intensities: np.ndarray,
     bins: Quantity,
-    apply_cross_section: bool = True,
 ) -> Quantity:
     """Bin intensities corresponding to QpointPhononModes to 1D spectra.
 
@@ -101,14 +95,7 @@ def _bin_mode_intensities(
     bin_width = bins[1] - bins[0]
     q_weights = modes.weights / modes.weights.sum()
 
-    if apply_cross_section:
-        atom_weights = _get_total_cross_sections(modes.crystal).to("barn").magnitude
-    else:
-        atom_weights = np.ones_like(modes.crystal.atom_mass)
-
-    weighted_intensities = np.einsum(
-        "i,k,ijk->ijk", q_weights, atom_weights, intensities
-    )
+    weighted_intensities = np.einsum("i,ijk->ijk", q_weights, intensities)
 
     frequencies = modes.frequencies.to(bins.units).magnitude
     y_data = np.zeros([modes.crystal.n_atoms, len(bins) - 1])
@@ -126,8 +113,7 @@ def _bin_mode_intensities(
             y_data[atom_index] += y_q_atom
 
     # Apply correct spectral scaling / units
-    y_data = y_data * ureg("barn") / bin_width
-    return y_data
+    return y_data / bin_width
 
 
 def calculate_isotropic_incoherent_spectra(
@@ -136,7 +122,6 @@ def calculate_isotropic_incoherent_spectra(
     atomic_displacements: Quantity,
     nominal_q2: Quantity,
     bins: Quantity,
-    apply_cross_section: bool = True,
     include_dw: bool = True,
 ) -> Spectrum1DCollection:
     """Calculate INS intensities in fully-isotropic incoherent approximation.
@@ -159,9 +144,6 @@ def calculate_isotropic_incoherent_spectra(
             neutron instrument parameters.
         bins:
             Energy or frequency bins used as x_data in resulting spectra
-        apply_cross_section:
-            Multiply each atom/isotope spectrum by a corresponding total
-            neutron scattering cross-section (σ_tot).
         include_dw:
             Multiply each spectrum by Debye-Waller factor; this is calculated
             from atomic_displacements and follows nominal_q2.
@@ -180,15 +162,12 @@ def calculate_isotropic_incoherent_spectra(
         modes=modes,
         intensities=intensities,
         bins=bins,
-        apply_cross_section=apply_cross_section,
     )
 
     metadata = {
         "method": "isotropic incoherent",
-        "cross sections": ("incoherent + coherent" if apply_cross_section else "none"),
         "line_data": [
-            {"atom_index": i, "atom_symbol": symbol, "quantum_order": 1}
-            for i, symbol in enumerate(modes.crystal.atom_type)
+            item | {"quantum_order": 1} for item in iter_atom_info(modes.crystal)
         ],
     }
     return Spectrum1DCollection(x_data=bins, y_data=y_data, metadata=metadata)
@@ -223,9 +202,6 @@ def q_scaling_isotropic_incoherent_spectra(
             Scalar Q^2 values corresponding to output bin centers.
         bins:
             Energy or frequency bins used as x_data in resulting spectra
-        apply_cross_section:
-            Multiply each atom/isotope spectrum by a corresponding total
-            neutron scattering cross-section (σ_tot).
 
     Returns:
         binned spectra of contribution from each nucleus
@@ -239,7 +215,6 @@ def q_scaling_isotropic_incoherent_spectra(
         atomic_displacements=atomic_displacements,
         nominal_q2=Quantity(np.ones_like(modes.frequencies.magnitude), "Å^-2"),
         bins=bins,
-        apply_cross_section=True,
         include_dw=False,
     )
 

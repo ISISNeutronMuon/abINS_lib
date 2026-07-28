@@ -1,9 +1,24 @@
 """Utility functions, not specific to one calculation type."""
 
+from __future__ import annotations
+
+from collections.abc import Iterator
+from dataclasses import dataclass
 from importlib.metadata import PackageNotFoundError, version
+from typing import TYPE_CHECKING, Self, TypedDict
 
 from euphonic import Quantity
+from euphonic.isotopes import Structure, sears_1992
+from euphonic.spectra import Spectrum1DCollection
 import numpy as np
+
+if TYPE_CHECKING:
+    from euphonic.isotopes import IsotopeData
+
+
+def is_none(a: object) -> bool:
+    """Backport from python 3.14 operator.is_none."""
+    return a is None
 
 
 def get_version() -> str:
@@ -43,3 +58,70 @@ def calculate_indirect_q2(
     k2_i = (energy_transfer + final_energy) / momentum2_to_energy
     k2_f = final_energy / momentum2_to_energy
     return k2_i + k2_f - 2 * np.sqrt(k2_i * k2_f) * np.cos(angle)
+
+
+@dataclass
+class _AtomSequence:
+    atom_type: np.ndarray
+    atom_mass: Quantity
+
+    @classmethod
+    def from_spectra(cls, spectra: Spectrum1DCollection) -> Self:
+        """Build a quasi-structure object from metadata of spectra."""
+        symbols = [item.get("atom_symbol") for item in spectra.iter_metadata()]
+        masses = [item.get("mass") for item in spectra.iter_metadata()]
+
+        if any(map(is_none, symbols)) or any(map(is_none, masses)):
+            raise ValueError(
+                "Not all items in spectra have atom_symbol and mass metadata."
+            )
+
+        atom_type = np.array(symbols)
+        atom_mass = Quantity(np.array(masses, dtype=float), "amu")
+
+        return cls(atom_type, atom_mass)
+
+
+def apply_weights(
+    spectra: Spectrum1DCollection,
+    isotope_data: IsotopeData = sears_1992,
+    key: str = "scattering_cross_section",
+) -> Spectrum1DCollection:
+    """Apply weights to Spectrum Collection data, based on atom symbol and mass.
+
+    Initially this only supports Spectrum1DCollection, but support for
+    Spectrum2DCollection will be added as needed.
+
+    Args:
+        spectra: unweighted data including 'atom_symbol' and 'mass' metadata
+        isotope_data: neutron dataset with symbol/mass lookup capability
+        key: key for get_array() lookups in isotope_data
+
+    Returns:
+        new set of weighted spectra
+
+    """
+    atoms = _AtomSequence.from_spectra(spectra)
+    weights = isotope_data.get_array(atoms, key=key)
+
+    y_data = spectra.y_data * weights[:, None]
+
+    return Spectrum1DCollection(
+        x_data=spectra.x_data, y_data=y_data, metadata=spectra.metadata
+    )
+
+
+class _AtomInfo(TypedDict):
+    """Atom metadata for use in SpectumNDCollection."""
+
+    atom_index: int
+    atom_symbol: str
+    mass: str
+
+
+def iter_atom_info(structure: Structure) -> Iterator[_AtomInfo]:
+    """Yield a series of atom metadata from structure data."""
+    for atom_index, (symbol, mass) in enumerate(
+        zip(structure.atom_type, structure.atom_mass.to("amu").magnitude, strict=True)
+    ):
+        yield _AtomInfo(atom_index=atom_index, atom_symbol=str(symbol), mass=str(mass))

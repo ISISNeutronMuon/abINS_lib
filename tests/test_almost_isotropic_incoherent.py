@@ -80,7 +80,7 @@ def test_calculate_almost_isotropic_incoherent_combinations_bad_q(tosca_modes):
     ],
     indirect=["tosca_modes"],
 )
-def test_calculate_isotropic_incoherent_spectra(
+def test_calculate_almost_isotropic_incoherent_spectra(
     temperature_k, tosca_modes, ndarrays_regression
 ):
     """Test almost-isotropic fundamentals"""
@@ -89,7 +89,13 @@ def test_calculate_isotropic_incoherent_spectra(
 
     bins = Quantity(np.arange(0, 8000, 1), "cm_1")
 
-    spectra = calculate_almost_isotropic_incoherent_spectra(modes, b, a, q2, bins)
+    spectra = calculate_almost_isotropic_incoherent_spectra(
+        modes,
+        b,
+        a,
+        q2,
+        bins,
+    )
 
     ndarrays_regression.check(
         {
@@ -102,15 +108,14 @@ def test_calculate_isotropic_incoherent_spectra(
 
 
 @pytest.mark.parametrize(
-    ("temperature_k", "tosca_modes", "apply_cross_section"),
+    ("temperature_k", "tosca_modes"),
     [
-        (100, "ethanol", False),
-        (100, "ethanol", True),
+        (100, "ethanol"),
     ],
     indirect=["tosca_modes"],
 )
 def test_calculate_almost_isotropic_incoherent_combination_spectra(
-    temperature_k, tosca_modes, apply_cross_section, ndarrays_regression
+    temperature_k, tosca_modes, ndarrays_regression
 ):
     """Test almost-isotropic fundamentals"""
     from abinslib.util import calculate_indirect_q2
@@ -131,7 +136,11 @@ def test_calculate_almost_isotropic_incoherent_combination_spectra(
     )
 
     spectra = calculate_almost_isotropic_incoherent_combination_spectra(
-        modes, b, a, q2, bins, apply_cross_section=apply_cross_section
+        modes,
+        b,
+        a,
+        q2,
+        bins,
     )
 
     ndarrays_regression.check(
@@ -165,12 +174,12 @@ def test_calculate_almost_isotropic_incoherent_combination_spectra_bad_weights(
 
 
 @pytest.mark.parametrize(
-    ("temperature_k", "tosca_modes", "apply_cross_section"),
-    [(100, "GaSb", False)],
+    ("temperature_k", "tosca_modes"),
+    [(100, "GaSb")],
     indirect=["tosca_modes"],
 )
 def test_q_scaling_almost_isotropic_incoherent_combination_spectra(
-    temperature_k, tosca_modes, apply_cross_section, ndarrays_regression
+    temperature_k, tosca_modes, ndarrays_regression
 ):
     """Test almost-isotropic fundamentals"""
     from abinslib.util import calculate_indirect_q2
@@ -188,7 +197,11 @@ def test_q_scaling_almost_isotropic_incoherent_combination_spectra(
     )
 
     spectra = q_scaling_almost_isotropic_incoherent_combination_spectra(
-        modes, b, a, q2, bins, apply_cross_section=apply_cross_section
+        modes,
+        b,
+        a,
+        q2,
+        bins,
     )
 
     ndarrays_regression.check(
@@ -202,12 +215,12 @@ def test_q_scaling_almost_isotropic_incoherent_combination_spectra(
 
 
 @pytest.mark.parametrize(
-    ("temperature_k", "tosca_modes", "apply_cross_section"),
-    [(100, "GaSb", False)],
+    ("temperature_k", "tosca_modes"),
+    [(100, "GaSb")],
     indirect=["tosca_modes"],
 )
 def test_mantid_like_combination_spectra(
-    temperature_k, tosca_modes, apply_cross_section, ndarrays_regression
+    temperature_k, tosca_modes, ndarrays_regression
 ):
     """Test almost-isotropic fundamentals"""
     from abinslib.util import calculate_indirect_q2
@@ -225,7 +238,11 @@ def test_mantid_like_combination_spectra(
     )
 
     spectra = mantid_like_combination_spectra(
-        modes, b, a, q2, bins, apply_cross_section=apply_cross_section
+        modes,
+        b,
+        a,
+        q2,
+        bins,
     )
 
     ndarrays_regression.check(
