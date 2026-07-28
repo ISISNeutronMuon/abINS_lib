@@ -104,9 +104,11 @@ def test_apply_weights(h2d_spectra) -> None:
     )
 
     assert weighted.y_data.units == ureg("barn / meV")
+    # Applied total scattering cross section of H-1 (hydrogen) atom: 82.02 barn
     assert_allclose(
         weighted.y_data[:2].magnitude, h2d_spectra.y_data[:2].magnitude * 82.02
     )
+    # Applied total scattering cross section of H-2 (deuterium) atom: 7.64 barn
     assert_allclose(
         weighted.y_data[2].magnitude, h2d_spectra.y_data[2].magnitude * 7.64
     )
