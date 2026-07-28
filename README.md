@@ -4,9 +4,15 @@
 [![License][license-badge]][license-link]
 
 # abinslib
-Dynamical structure factor calculations
+A library for dynamical structure factor calculations from phonon data in the harmonic approximation.
 
-This is still an experimental playground, please do not use for production.
+**This is still in alpha: if using for production, pin a minor version number (e.g. `abinslib~=0.1.0`)**
+
+Abinslib implements a variety of simulation methods for inelastic neutron scattering (INS) from phonons,
+in the general CLIMAX/abINS lineage.  Most of these approximations have not been rigorously compared,
+so this is intended to provide both
+- reference implementations that can be called by user-facing simulation software; and
+- a playground for method development and validation in this area.
 
 ## Testing and linting
 
@@ -49,7 +55,7 @@ against the equivalent calculation in Mantid: a Snakemake workflow in
 *dev/validation* is used to produce reference data, and this is
 plotted against abinslib calculations in the documentation gallery.
 
-**TODO: insert link, preferably with image**:
+![](https://github.com/ISISNeutronMuon/abINS_lib/blob/fed5dc022e887998ec09f9e90ec6e8c9e6b1c5db/dev/validation/results/second-order-plot.png)
 
 To reproduce the result so closely it was necessary to apply similar
 implementation details: the `q_scaling_isotropic_incoherent_spectra`
@@ -57,10 +63,6 @@ function computes mode intensities at Q = 1Å and bins them to a dense
 spectrum before applying Q^n2/n! scaling and Debye—Waller factor for
 the bin-centre Q values. In practice this gives an acceptable
 discretisation error of ~0.1%.
-
-Another minor discrepancy comes from the neutron scattering
-cross-section references.
-
 
 [ruff-badge]: https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json
 [ruff-link]: https://github.com/astral-sh/ruff
