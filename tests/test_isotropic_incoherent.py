@@ -1,7 +1,7 @@
 from dataclasses import astuple
 from pathlib import Path
 
-from euphonic import Crystal, Quantity
+from euphonic import Quantity
 from euphonic.isotopes import sears_1992
 import numpy as np
 from numpy.testing import assert_allclose
@@ -10,7 +10,6 @@ import pytest
 from abinslib.displacements import (
     Displacements,
 )
-import abinslib.isotropic_incoherent
 from abinslib.isotropic_incoherent import (
     calculate_isotropic_dw_factor,
     calculate_isotropic_incoherent_spectra,
@@ -19,28 +18,6 @@ from abinslib.isotropic_incoherent import (
 from abinslib.util import apply_weights
 
 test_data = Path(__file__).parent / "data"
-
-
-@pytest.fixture
-def patch_cross_sections(monkeypatch):
-    """Replace Euphonic cross-section lookup with Mantid values"""
-
-    def _get_mantid_total_cross_sections(crystal: Crystal) -> Quantity:
-        mantid_data = {
-            "Ga": 6.83,
-            "Sb": 3.9,
-            "C": 5.551,
-            "H": 82.02,
-            "O": 4.232,
-        }
-
-        return Quantity([mantid_data[symbol] for symbol in crystal.atom_type], "barn")
-
-    monkeypatch.setattr(
-        abinslib.isotropic_incoherent,
-        "_get_total_cross_sections",
-        _get_mantid_total_cross_sections,
-    )
 
 
 @pytest.mark.parametrize(
@@ -73,7 +50,7 @@ def test_isotropic_dw(modes, ref_npz, ndarrays_regression):
     indirect=("tosca_modes", "ref_npz"),
 )
 def test_calculate_isotropic_incoherent_spectrum(
-    temperature_k, tosca_modes, ref_npz, patch_cross_sections, ndarrays_regression
+    temperature_k, tosca_modes, ref_npz, ndarrays_regression
 ):
     """Test reference method for fully-isotropic calculation
 
@@ -127,7 +104,6 @@ def test_q_scaling_isotropic_incoherent_spectrum(
     temperature_k,
     tosca_modes,
     ref_npz,
-    patch_cross_sections,
     ndarrays_regression,
 ):
     """Validate fully-isotropic calculation against Mantid-Abins data

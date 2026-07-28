@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from euphonic import Quantity
-from euphonic.crystal import Crystal
 from euphonic.spectra import Spectrum1DCollection
 import numpy as np
 
@@ -15,12 +14,6 @@ if TYPE_CHECKING:
     from euphonic import QpointPhononModes
 
     from . import Displacements
-
-
-def _get_total_cross_sections(crystal: Crystal) -> Quantity:
-    from euphonic.isotopes import sears_1992
-
-    return sears_1992.get_array(crystal, "scattering_cross_section")
 
 
 def calculate_isotropic_incoherent_fundamentals(
