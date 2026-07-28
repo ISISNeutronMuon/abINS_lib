@@ -9,6 +9,8 @@ from euphonic.crystal import Crystal
 from euphonic.spectra import Spectrum1DCollection
 import numpy as np
 
+from abinslib.util import iter_atom_info
+
 if TYPE_CHECKING:
     from euphonic import QpointPhononModes
 
@@ -172,19 +174,7 @@ def calculate_isotropic_incoherent_spectra(
     metadata = {
         "method": "isotropic incoherent",
         "line_data": [
-            {
-                "atom_index": i,
-                "atom_symbol": symbol,
-                "quantum_order": 1,
-                "mass": str(mass),
-            }
-            for i, (symbol, mass) in enumerate(
-                zip(
-                    modes.crystal.atom_type,
-                    modes.crystal.atom_mass.to("amu").magnitude,
-                    strict=True,
-                )
-            )
+            item | {"quantum_order": 1} for item in iter_atom_info(modes.crystal)
         ],
     }
     return Spectrum1DCollection(x_data=bins, y_data=y_data, metadata=metadata)

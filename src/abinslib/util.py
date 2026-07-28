@@ -3,12 +3,13 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass
 from importlib.metadata import PackageNotFoundError, version
-from typing import TYPE_CHECKING, Self
+from typing import TYPE_CHECKING, Self, TypedDict
 
 from euphonic import Quantity
-from euphonic.isotopes import sears_1992
+from euphonic.isotopes import Structure, sears_1992
 from euphonic.spectra import Spectrum1DCollection
 import numpy as np
 
@@ -109,3 +110,19 @@ def apply_weights(
     return Spectrum1DCollection(
         x_data=spectra.x_data, y_data=y_data, metadata=spectra.metadata
     )
+
+
+class _AtomInfo(TypedDict):
+    """Atom metadata for use in SpectumNDCollection."""
+
+    index: int
+    atom_symbol: str
+    mass: str
+
+
+def iter_atom_info(structure: Structure) -> Iterator[_AtomInfo]:
+    """Yield a series of atom metadata from structure data."""
+    for index, (symbol, mass) in enumerate(
+        zip(structure.atom_type, structure.atom_mass.to("amu").magnitude, strict=True)
+    ):
+        yield _AtomInfo(index=index, atom_symbol=str(symbol), mass=str(mass))

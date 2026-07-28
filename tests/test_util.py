@@ -1,6 +1,7 @@
 """Unit tests for abinslib.util module"""
 
 from copy import deepcopy
+from dataclasses import dataclass
 
 from euphonic import Quantity, ureg
 from euphonic.spectra import Spectrum1DCollection
@@ -8,7 +9,12 @@ import numpy as np
 from numpy.testing import assert_allclose, assert_array_equal
 import pytest
 
-from abinslib.util import _AtomSequence, apply_weights, calculate_indirect_q2
+from abinslib.util import (
+    _AtomSequence,
+    apply_weights,
+    calculate_indirect_q2,
+    iter_atom_info,
+)
 
 
 def test_get_version(monkeypatch):
@@ -118,3 +124,28 @@ def test_bad_spectra(h2d_spectra) -> None:
         ValueError, match="Not all items in spectra have atom_symbol and mass metadata."
     ):
         apply_weights(h2d_spectra)
+
+
+@dataclass
+class SampleStructure:
+    atom_type: np.ndarray
+    atom_mass: Quantity
+
+
+def test_iter_atom_info() -> None:
+    symbols = ["Ga", "Sb"]
+    masses = [69.723, 121.76]
+
+    structure = SampleStructure(
+        atom_type=np.array(symbols),
+        atom_mass=Quantity(masses, "amu"),
+    )
+    atom_info = list(iter_atom_info(structure))
+
+    assert len(atom_info) == len(symbols)
+    for i, (symbol, mass) in enumerate(zip(symbols, masses, strict=True)):
+        info = atom_info[i]
+        assert info["index"] == i
+        assert info["atom_symbol"] == symbol
+        assert isinstance(info["mass"], str)
+        assert float(info["mass"]) == pytest.approx(mass)
