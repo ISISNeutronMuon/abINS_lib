@@ -145,7 +145,7 @@ def test_iter_atom_info() -> None:
     assert len(atom_info) == len(symbols)
     for i, (symbol, mass) in enumerate(zip(symbols, masses, strict=True)):
         info = atom_info[i]
-        assert info["index"] == i
+        assert info["atom_index"] == i
         assert info["atom_symbol"] == symbol
         assert isinstance(info["mass"], str)
         assert float(info["mass"]) == pytest.approx(mass)

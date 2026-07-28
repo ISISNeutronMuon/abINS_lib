@@ -115,14 +115,14 @@ def apply_weights(
 class _AtomInfo(TypedDict):
     """Atom metadata for use in SpectumNDCollection."""
 
-    index: int
+    atom_index: int
     atom_symbol: str
     mass: str
 
 
 def iter_atom_info(structure: Structure) -> Iterator[_AtomInfo]:
     """Yield a series of atom metadata from structure data."""
-    for index, (symbol, mass) in enumerate(
+    for atom_index, (symbol, mass) in enumerate(
         zip(structure.atom_type, structure.atom_mass.to("amu").magnitude, strict=True)
     ):
-        yield _AtomInfo(index=index, atom_symbol=str(symbol), mass=str(mass))
+        yield _AtomInfo(atom_index=atom_index, atom_symbol=str(symbol), mass=str(mass))

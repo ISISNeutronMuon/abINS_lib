@@ -6,6 +6,8 @@ from euphonic import QpointPhononModes, Quantity, ureg
 from euphonic.spectra import Spectrum1DCollection
 import numpy as np
 
+from abinslib.util import iter_atom_info
+
 from .displacements import Displacements
 from .isotropic_incoherent import (
     _bin_mode_intensities,
@@ -195,19 +197,7 @@ def calculate_almost_isotropic_incoherent_spectra(
     metadata = {
         "method": "almost-isotropic incoherent",
         "line_data": [
-            {
-                "atom_index": i,
-                "atom_symbol": symbol,
-                "quantum_order": 1,
-                "mass": str(mass),
-            }
-            for i, (symbol, mass) in enumerate(
-                zip(
-                    modes.crystal.atom_type,
-                    modes.crystal.atom_mass.to("amu").magnitude,
-                    strict=True,
-                )
-            )
+            item | {"quantum_order": 1} for item in iter_atom_info(modes.crystal)
         ],
     }
     spectra = Spectrum1DCollection(x_data=bins, y_data=y_data, metadata=metadata)
@@ -264,19 +254,7 @@ def calculate_almost_isotropic_incoherent_combination_spectra(
     metadata = {
         "method": "almost-isotropic incoherent",
         "line_data": [
-            {
-                "atom_index": i,
-                "atom_symbol": symbol,
-                "quantum_order": 2,
-                "mass": str(mass),
-            }
-            for i, (symbol, mass) in enumerate(
-                zip(
-                    modes.crystal.atom_type,
-                    modes.crystal.atom_mass.to("amu").magnitude,
-                    strict=True,
-                )
-            )
+            item | {"quantum_order": 2} for item in iter_atom_info(modes.crystal)
         ],
     }
     return Spectrum1DCollection(x_data=bins, y_data=y_data, metadata=metadata)
@@ -336,19 +314,7 @@ def q_scaling_almost_isotropic_incoherent_combination_spectra(
     metadata = {
         "method": "almost-isotropic incoherent approximation",
         "line_data": [
-            {
-                "atom_index": i,
-                "atom_symbol": symbol,
-                "quantum_order": 2,
-                "mass": str(mass),
-            }
-            for i, (symbol, mass) in enumerate(
-                zip(
-                    modes.crystal.atom_type,
-                    modes.crystal.atom_mass.to("amu").magnitude,
-                    strict=True,
-                )
-            )
+            item | {"quantum_order": 2} for item in iter_atom_info(modes.crystal)
         ],
     }
     spectra = Spectrum1DCollection(x_data=bins, y_data=y_data, metadata=metadata)
