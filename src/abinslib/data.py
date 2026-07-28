@@ -104,7 +104,7 @@ def get_validation_data(
 
     """
     for search_dir in search_dirs:
-        local_path = (Path(search_dir) / filename).resolve()
+        local_path = Path(search_dir, filename).resolve()
         if local_path.is_file():
             return local_path
 

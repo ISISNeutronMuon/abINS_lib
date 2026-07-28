@@ -14,7 +14,7 @@ def sha256sum(filename: Path) -> str:
 
 def main():
     """Print validation data registry format."""
-    validation_dir = Path(__file__).parent.parent
+    validation_dir = Path(__file__).parents[1]
 
     json_files = sorted(
         chain(
