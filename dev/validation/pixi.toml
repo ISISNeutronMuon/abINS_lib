@@ -13,7 +13,10 @@ archive = "zip -j validation-data-v1.zip results/*_mantid_*.json data/*.json"
 hashes = "python scripts/hash_results.py"
 # Check newly generated sha256 hashes against reference registry
 check-hashes = "python scripts/hash_results.py | python scripts/check_hashes.py -"
+# Run tests for dev validation scripts
+test = "pytest tests"
 
 [dependencies]
 snakemake = "~=9.16.3"
 mantid = "~=6.15.0"
+pytest = ">=8.0"

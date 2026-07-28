@@ -96,6 +96,7 @@ extend-ignore-names = [
 [tool.ruff.lint.per-file-ignores]
 # Ease docstring requirements for unit tests and workflows
 "tests/*" = ["D", "DOC"]
+"dev/validation/tests/*" = ["D", "DOC"]
 "docs/source/tutorials/*" = [
     "D",
     "DOC",

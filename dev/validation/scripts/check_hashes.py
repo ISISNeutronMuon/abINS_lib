@@ -5,24 +5,16 @@ from pathlib import Path
 import sys
 
 
-def parse_args(args: list[str] | None = None) -> argparse.Namespace:
-    """Parse command-line arguments.
-
-    Args:
-        args: List of command-line argument strings, or None to use sys.argv.
+def get_parser() -> argparse.ArgumentParser:
+    """Construct argument parser for the check_hashes script.
 
     Returns:
-        Parsed arguments namespace.
+        Configured ArgumentParser instance.
     """
     default_registry = (
         Path(__file__).resolve().parents[3]
-        / "src"
-        / "abinslib"
-        / "registries"
-        / "registry_validation.txt"
+        / "src/abinslib/registries/registry_validation.txt"
     )
-    if not default_registry.is_file():
-        default_registry = Path("src/abinslib/registries/registry_validation.txt")
 
     parser = argparse.ArgumentParser(
         description="Compare validation data file hashes against reference registry."
@@ -47,7 +39,7 @@ def parse_args(args: list[str] | None = None) -> argparse.Namespace:
             "(default: src/abinslib/registries/registry_validation.txt)."
         ),
     )
-    return parser.parse_args(args)
+    return parser
 
 
 def read_hashes(file_path: Path) -> dict[str, str]:
@@ -59,20 +51,19 @@ def read_hashes(file_path: Path) -> dict[str, str]:
     Returns:
         Dictionary mapping filename to hash string.
     """
-    hashes = {}
-    if str(file_path) == "-":
-        lines = sys.stdin.readlines()
-    else:
-        with file_path.open("r", encoding="utf-8") as fd:
-            lines = fd.readlines()
+    lines = (
+        sys.stdin.readlines()
+        if str(file_path) == "-"
+        else file_path.read_text(encoding="utf-8").splitlines()
+    )
 
+    hashes = {}
     for line in lines:
-        line_str = line.strip()
-        if not line_str or line_str.startswith("#"):
-            continue
-        parts = line_str.split()
-        if len(parts) >= 2:
-            hashes[parts[0]] = parts[1]
+        match line.split():
+            case [word, *_] if word.startswith("#"):
+                continue
+            case [filename, hash_val, *_]:
+                hashes[filename] = hash_val
 
     return hashes
 
@@ -88,39 +79,34 @@ def compare_hashes(
         ref_hashes: Dictionary of reference hashes.
 
     Returns:
-        List of mismatch description strings.
+        List of mismatch description strings sorted by filename.
     """
     mismatches = []
-    for filename, new_hash in new_hashes.items():
+    all_filenames = sorted(new_hashes.keys() | ref_hashes.keys())
+    for filename in all_filenames:
+        new_hash = new_hashes.get(filename)
         old_hash = ref_hashes.get(filename)
         if old_hash != new_hash:
             mismatches.append(f"{filename} (Old: {old_hash} -> New: {new_hash})")
     return mismatches
 
 
-def main(args: list[str] | None = None) -> None:
-    """Compare newly generated hashes with a reference registry.
+def main() -> None:
+    """Compare newly generated hashes with a reference registry."""
+    args = get_parser().parse_args()
 
-    Args:
-        args: Command-line arguments.
-    """
-    parsed_args = parse_args(args)
-
-    new_hashes_path: Path = parsed_args.new_hashes
-    ref_hashes_path: Path = parsed_args.ref_hashes
-
-    if str(new_hashes_path) != "-" and not new_hashes_path.is_file():
-        print(f"Error: File not found: {new_hashes_path}", file=sys.stderr)
+    if str(args.new_hashes) != "-" and not args.new_hashes.is_file():
+        print(f"Error: File not found: {args.new_hashes}", file=sys.stderr)
         sys.exit(1)
 
-    if not ref_hashes_path.is_file():
-        print(f"Error: File not found: {ref_hashes_path}", file=sys.stderr)
+    if not args.ref_hashes.is_file():
+        print(f"Error: File not found: {args.ref_hashes}", file=sys.stderr)
         sys.exit(1)
 
-    print(f"Comparing newly generated hashes with {ref_hashes_path}...")
+    print(f"Comparing newly generated hashes with {args.ref_hashes}...")
 
-    new_hashes = read_hashes(new_hashes_path)
-    ref_hashes = read_hashes(ref_hashes_path)
+    new_hashes = read_hashes(args.new_hashes)
+    ref_hashes = read_hashes(args.ref_hashes)
 
     mismatches = compare_hashes(new_hashes, ref_hashes)
 
@@ -137,8 +123,8 @@ def main(args: list[str] | None = None) -> None:
             "locally, and create a new GitHub release to host the files."
         )
         sys.exit(1)
-    else:
-        print("✅ Success: Newly generated data matches the reference hashes.")
+
+    print("✅ Success: Newly generated data matches the reference hashes.")
 
 
 if __name__ == "__main__":
