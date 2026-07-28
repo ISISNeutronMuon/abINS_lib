@@ -2,6 +2,7 @@ from dataclasses import astuple
 from pathlib import Path
 
 from euphonic import Crystal, Quantity
+from euphonic.isotopes import sears_1992
 import numpy as np
 from numpy.testing import assert_allclose
 import pytest
@@ -91,7 +92,9 @@ def test_calculate_isotropic_incoherent_spectrum(
     a = b.to_atomic_displacements()
 
     spectra = calculate_isotropic_incoherent_spectra(modes, b, a, q2, bins)
-    spectra = apply_weights(spectra)  # default: Sears 1992 σ_tot
+    spectra = apply_weights(
+        spectra, isotope_data=sears_1992, key="scattering_cross_section"
+    )
     spectrum = spectra.sum()
 
     # Loose check against Mantid-Abins: different quantisation scheme
@@ -145,7 +148,9 @@ def test_q_scaling_isotropic_incoherent_spectrum(
     q2 = Quantity(np.load(test_data / "abins-q2-1_4-dump.npy"), "Å^-2")
 
     spectra = q_scaling_isotropic_incoherent_spectra(modes, b, a, q2, bins)
-    spectra = apply_weights(spectra)  # default: Sears 1992 σ_tot
+    spectra = apply_weights(
+        spectra, isotope_data=sears_1992, key="scattering_cross_section"
+    )
     spectrum = spectra.sum()
 
     # Fairly tight check against Mantid-Abins reference

@@ -4,6 +4,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 
 from euphonic import Quantity, ureg
+from euphonic.isotopes import sears_1992
 from euphonic.spectra import Spectrum1DCollection
 import numpy as np
 from numpy.testing import assert_allclose, assert_array_equal
@@ -98,7 +99,9 @@ def test_atom_sequence(h2d_spectra) -> None:
 
 
 def test_apply_weights(h2d_spectra) -> None:
-    weighted = apply_weights(h2d_spectra)
+    weighted = apply_weights(
+        h2d_spectra, isotope_data=sears_1992, key="scattering_cross_section"
+    )
 
     assert weighted.y_data.units == ureg("barn / meV")
     assert_allclose(
@@ -116,14 +119,18 @@ def test_bad_spectra(h2d_spectra) -> None:
     with pytest.raises(
         ValueError, match="Not all items in spectra have atom_symbol and mass metadata."
     ):
-        apply_weights(h2d_spectra)
+        apply_weights(
+            h2d_spectra, isotope_data=sears_1992, key="scattering_cross_section"
+        )
 
     h2d_spectra.metadata = deepcopy(ref_metadata)
     h2d_spectra.metadata["line_data"][1] = {}
     with pytest.raises(
         ValueError, match="Not all items in spectra have atom_symbol and mass metadata."
     ):
-        apply_weights(h2d_spectra)
+        apply_weights(
+            h2d_spectra, isotope_data=sears_1992, key="scattering_cross_section"
+        )
 
 
 @dataclass
