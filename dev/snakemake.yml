@@ -1,4 +1,0 @@
-name: snakemake
-
-dependencies:
-  - bioconda::snakemake==9.16.3

@@ -1,23 +1,41 @@
 This directory contains scripts and notes used in development. It
 should not be included in the distributed package.
 
-## Benchmarking
+## Validation
 
-Scripts to generate benchmark data from Abins. This requires Mantid so
-is managed with Conda environments; we prefer not to deal with those
-in the main test suite, so these scripts produce reference output
-files to be stored in the main test suite.
+A workflow to generate benchmark data from Mantid-Abins. This requires
+Mantid, which we prefer not to deal with in the main test suite or
+documentation builds. Here we use pixi to define a Conda environment
+and some useful commands.
 
-To produce data, create a suitable Snakemake environment, e.g.
+The files generated here are then uploaded (by hand) to somewhere they
+can be found by `abinslib.data.get_validation_data()`, which will
+check that the file hashes match the expected values. This allows docs
+builds to validate fresh abinslib results against archived Mantid
+results.
+
+To generate the data, make sure pixi is available and you are on a
+Mantid-supported platform, then from the *validation/* directory:
 
 ```
-conda create -n snakemake -c bioconda -c conda-forge snakemake
-conda activate snakemake
+pixi run generate
 ```
 
-then run using parallel cores and automatically-generated conda environments:
+You can then get the results file hashes with
 
 ```
-cd phonon_data
-snakemake -c 8 --sdm conda
+pixi run hashes
 ```
+
+and create a .zip archive with
+
+```
+pixi run archive
+```
+
+Note that your hashes might differ from the reference due to small
+numerical changes, so unexpected hashes don't _necessarily_ mean
+something has gone badly wrong.
+Local builds of the docs will prefer files in dev/validation/results
+to their online equivalents, so you can check the generated plots to
+see if a genuine mismatch has appeared.
