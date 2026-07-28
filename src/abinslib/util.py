@@ -77,7 +77,7 @@ class _AtomSequence:
             )
 
         atom_type = np.array(symbols)
-        atom_mass = Quantity(np.fromiter(map(float, masses), dtype=float), "amu")
+        atom_mass = Quantity(np.array(masses, dtype=float), "amu")
 
         return cls(atom_type, atom_mass)
 
