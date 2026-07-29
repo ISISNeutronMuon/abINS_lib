@@ -35,7 +35,9 @@ modes = QpointPhononModes.from_json_file(input_file)
 # Set some calculation parameters
 temperature = Quantity(10, "kelvin")
 
-# TOSCA kinematic constraints (134.99 degrees, Ef = 32 cm^-1)
+# TOSCA kinematic constraints (Backscattering, Ef = 32 cm^-1).
+# The odd value of backscattering angle for validation is related to
+# Mantid-Abins implementation history; 135° is fine for normal calculations.
 angle = 134.98885653282196 * np.pi / 180
 final_energy = Quantity(32.0, "cm_1").to("hartree")
 
