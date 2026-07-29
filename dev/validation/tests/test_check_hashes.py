@@ -39,7 +39,7 @@ def test_compare_hashes_matching():
     ref_h = {"file1.json": "hash1", "file2.json": "hash2"}
 
     mismatches = compare_hashes(new_h, ref_h)
-    assert mismatches == []
+    assert not mismatches
 
 
 def test_compare_hashes_mismatch_and_sorting():

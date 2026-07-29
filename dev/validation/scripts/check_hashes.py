@@ -55,13 +55,11 @@ def read_hashes(file_path: Path) -> dict[str, str]:
         else file_path.read_text(encoding="utf-8").splitlines()
     )
 
-    hashes = {}
-    for line in lines:
-        match line.split():
-            case [word, *_] if word.startswith("#"):
-                continue
-            case [filename, hash_val, *_]:
-                hashes[filename] = hash_val
+    hashes = {
+        words[0]: words[1]
+        for line in lines
+        if not line.startswith("#") and (words := line.split())
+    }
 
     return hashes
 
@@ -79,14 +77,11 @@ def compare_hashes(
     Returns:
         List of mismatch description strings sorted by filename.
     """
-    mismatches = []
-    all_filenames = sorted(new_hashes.keys() | ref_hashes.keys())
-    for filename in all_filenames:
-        new_hash = new_hashes.get(filename)
-        old_hash = ref_hashes.get(filename)
-        if old_hash != new_hash:
-            mismatches.append(f"{filename} (Old: {old_hash} -> New: {new_hash})")
-    return mismatches
+    return [
+        f"{filename} (Old: {old_hash} -> New: {new_hash})"
+        for fn in sorted(new_hashes.keys() | ref_hashes.keys())
+        if (old_hash := ref_hashes.get(fn)) != (new_hash := new_hashes.get(fn))
+    ]
 
 
 def main() -> None:
