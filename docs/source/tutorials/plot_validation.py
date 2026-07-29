@@ -52,7 +52,7 @@ def plot_validation_comparison(
     title: str,
     xlim: float,
     width: Quantity = Quantity(1, "meV"),
-):
+) -> None:
     """Plot two spectra for comparison.
 
     Fixed-width Gaussian broadening is added as a visual aid and approximation
@@ -70,8 +70,9 @@ def plot_validation_comparison(
     ax.set_xlabel("Energy transfer / meV")
     ax.set_ylabel("$S(\\omega)$ / barn meV$^{-1}$")
     ax.set_yscale("log")
-    plt.tight_layout()
-    return fig, ax
+
+    fig.tight_layout()
+    plt.show()
 
 
 # %%
