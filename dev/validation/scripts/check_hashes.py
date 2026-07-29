@@ -79,8 +79,11 @@ def compare_hashes(
     """
     return [
         f"{filename} (Old: {old_hash} -> New: {new_hash})"
-        for fn in sorted(new_hashes.keys() | ref_hashes.keys())
-        if (old_hash := ref_hashes.get(fn)) != (new_hash := new_hashes.get(fn))
+        for filename in sorted(new_hashes.keys() | ref_hashes.keys())
+        if (
+            (old_hash := ref_hashes.get(filename))
+            != (new_hash := new_hashes.get(filename))
+        )
     ]
 
 
