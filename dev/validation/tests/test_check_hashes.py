@@ -13,12 +13,17 @@ from dev.validation.scripts.check_hashes import (
     read_hashes,
 )
 
+SAMPLE_TEXT = """\
+# Header comment
+file1.json hash1
+
+file2.json hash2 extra_info
+"""
+
 
 def test_read_hashes(tmp_path: Path):
     hash_file = tmp_path / "hashes.txt"
-    hash_file.write_text(
-        "# Header comment\nfile1.json hash1\n\nfile2.json hash2 extra_info\n"
-    )
+    hash_file.write_text(SAMPLE_TEXT)
 
     result = read_hashes(hash_file)
     assert result == {"file1.json": "hash1", "file2.json": "hash2"}
@@ -28,7 +33,7 @@ def test_read_hashes_stdin(monkeypatch):
     monkeypatch.setattr(
         sys,
         "stdin",
-        StringIO("# Comment\nfile1.json hash1\nfile2.json hash2\n"),
+        StringIO(SAMPLE_TEXT),
     )
     result = read_hashes(Path("-"))
     assert result == {"file1.json": "hash1", "file2.json": "hash2"}
