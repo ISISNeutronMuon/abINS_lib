@@ -87,9 +87,13 @@ def compare_hashes(
     ]
 
 
-def main() -> None:
-    """Compare newly generated hashes with a reference registry."""
-    args = get_parser().parse_args()
+def main(args: list[str] | None = None) -> None:
+    """Compare newly generated hashes with a reference registry.
+
+    Args:
+        args: Command-line arguments or None to parse sys.argv.
+    """
+    args = get_parser().parse_args(args)
 
     if str(args.new_hashes) != "-" and not args.new_hashes.is_file():
         print(f"Error: File not found: {args.new_hashes}", file=sys.stderr)

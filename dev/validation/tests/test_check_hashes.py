@@ -80,53 +80,38 @@ def test_get_parser():
     assert custom_args.ref_hashes == Path("ref.txt")
 
 
-def test_main_success(tmp_path: Path, capsys, monkeypatch):
+def test_main_success(tmp_path: Path, capsys):
     new_file = tmp_path / "new.txt"
     ref_file = tmp_path / "ref.txt"
     new_file.write_text("file1.json hash1\n")
     ref_file.write_text("file1.json hash1\n")
 
-    monkeypatch.setattr(
-        sys,
-        "argv",
-        ["check_hashes.py", str(new_file), str(ref_file)],
-    )
-    main()
+    main([str(new_file), str(ref_file)])
     captured = capsys.readouterr()
     assert "Success" in captured.out
 
 
-def test_main_mismatch(tmp_path: Path, capsys, monkeypatch):
+def test_main_mismatch(tmp_path: Path, capsys):
     new_file = tmp_path / "new.txt"
     ref_file = tmp_path / "ref.txt"
     new_file.write_text("file1.json hash_new\n")
     ref_file.write_text("file1.json hash_old\n")
 
-    monkeypatch.setattr(
-        sys,
-        "argv",
-        ["check_hashes.py", str(new_file), str(ref_file)],
-    )
     with pytest.raises(SystemExit) as exc_info:
-        main()
+        main([str(new_file), str(ref_file)])
 
     assert exc_info.value.code == 1
     captured = capsys.readouterr()
     assert "MISMATCH DETECTED" in captured.out
 
 
-def test_main_missing_file(tmp_path: Path, capsys, monkeypatch):
+def test_main_missing_file(tmp_path: Path, capsys):
     missing_file = tmp_path / "missing.txt"
     ref_file = tmp_path / "ref.txt"
     ref_file.write_text("file1.json hash1\n")
 
-    monkeypatch.setattr(
-        sys,
-        "argv",
-        ["check_hashes.py", str(missing_file), str(ref_file)],
-    )
     with pytest.raises(SystemExit) as exc_info:
-        main()
+        main([str(missing_file), str(ref_file)])
 
     assert exc_info.value.code == 1
     captured = capsys.readouterr()
