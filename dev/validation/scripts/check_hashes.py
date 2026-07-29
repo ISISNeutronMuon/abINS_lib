@@ -17,7 +17,8 @@ def get_parser() -> argparse.ArgumentParser:
     )
 
     parser = argparse.ArgumentParser(
-        description="Compare validation data file hashes against reference registry."
+        description="Compare validation data file hashes against reference registry.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
         "new_hashes",
@@ -26,7 +27,7 @@ def get_parser() -> argparse.ArgumentParser:
         default=Path("-"),
         help=(
             "Path to text file containing newly generated hashes, or '-' "
-            "to read from stdin (default: '-')."
+            "to read from stdin."
         ),
     )
     parser.add_argument(
@@ -34,10 +35,7 @@ def get_parser() -> argparse.ArgumentParser:
         type=Path,
         nargs="?",
         default=default_registry,
-        help=(
-            "Path to text file containing reference hashes "
-            "(default: src/abinslib/registries/registry_validation.txt)."
-        ),
+        help=("Path to text file containing reference hashes."),
     )
     return parser
 
