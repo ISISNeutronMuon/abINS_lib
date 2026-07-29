@@ -1,3 +1,6 @@
+import importlib
+import importlib.resources
+from io import StringIO
 from pathlib import Path
 import sys
 
@@ -44,8 +47,6 @@ def test_pooch_import_handler(monkeypatch):
 
 def test_pooch_module_import_failure(monkeypatch):
     """Check module load behavior when pooch import fails."""
-    import importlib
-
     monkeypatch.setitem(sys.modules, "pooch", None)
     importlib.reload(abinslib.data)
 
@@ -104,14 +105,12 @@ def test_validation_search_dirs_zipped_fallback(monkeypatch):
     This is expected when working from a zipped package build, but testing is
     usually run from an editable install.
     """
-    import importlib.resources
-    import io
 
     class DummyMultiplexedPath:
         def joinpath(self, *args):
             class DummyFile:
                 def open(self, mode):
-                    return io.StringIO()
+                    return StringIO()
 
             return DummyFile()
 
