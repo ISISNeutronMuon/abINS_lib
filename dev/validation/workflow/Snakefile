@@ -1,73 +1,16 @@
 configfile: "config/config.yml"
 
-
 rule all:
     input:
-        "results/isotropic-plot.png",
-        "results/almost-isotropic-plot.png",
-        "results/second-order-plot.png",
-
-rule validate_isotropic_fundamentals_like_mantid:
-    input:
-        "results/ethanol_isotropic_fundamentals.json",
         "results/ethanol_mantid_isotropic_fundamentals.json",
-    output:
-        "results/isotropic-plot.png",
-    params:
-        title=(lambda w: ("Ethanol isotropic fundamentals:\n"
-                          r"134.99° $E_f = 32 \text{cm}^{-1}$")),
-        label1="q_scaling_isotropic_incoherent_spectra",
-        label2="Mantid-Abins isotropic fundamentals",
-        xlim=200,
-    conda:
-        "envs/mantid.yml"
-    script:
-        "scripts/plot_fundamentals.py"
-
-
-rule validate_almost_isotropic_fundamentals_like_mantid:
-    input:
-        "results/ethanol_almost_isotropic_fundamentals.json",
         "results/ethanol_mantid_almost_isotropic_fundamentals.json",
-    output:
-        "results/almost-isotropic-plot.png",
-    params:
-        title=(lambda w: ("Ethanol almost-isotropic fundamentals:\n"
-                          r"134.99° $E_f = 32 \text{cm}^{-1}$")),
-        label1="calculate_almost_isotropic_incoherent_spectra",
-        label2="Mantid-Abins almost-isotropic fundamentals",
-        xlim=200,
-    conda:
-        "envs/mantid.yml"
-    script:
-        "scripts/plot_fundamentals.py"
-
-
-rule validate_second_order_like_mantid:
-    input:
-        "results/ethanol_second_order.json",
         "results/ethanol_mantid_second_order.json",
-    output:
-        "results/second-order-plot.png",
-    params:
-        title=(lambda w: ("Ethanol second order:\n"
-                          r"134.99° $E_f = 32 \text{cm}^{-1}$")),
-        label1="mantid_like_combination_spectra",
-        label2="Mantid-Abins almost-isotropic second-order",
-        xlim=420,
-        # linear=True,
-    conda:
-        "envs/mantid.yml"
-    script:
-        "scripts/plot_fundamentals.py"
 
 rule write_isotropic_fundamentals_mantid:
     input:
         "data/{label}_qpoint_phonon_modes.json",
     output:
         "results/{label}_mantid_isotropic_fundamentals.json",
-    conda:
-        "envs/mantid.yml"
     params:
         raw=True,
         isotropic=True,
@@ -75,14 +18,11 @@ rule write_isotropic_fundamentals_mantid:
     script:
         "scripts/write_mantid_fundamentals.py"
 
-
 rule write_almost_isotropic_fundamentals_mantid:
     input:
         "data/{label}_qpoint_phonon_modes.json",
     output:
         "results/{label}_mantid_almost_isotropic_fundamentals.json",
-    conda:
-        "envs/mantid.yml"
     params:
         raw=True,
         isotropic=False,
@@ -90,49 +30,11 @@ rule write_almost_isotropic_fundamentals_mantid:
     script:
         "scripts/write_mantid_fundamentals.py"
 
-rule write_isotropic_fundamentals:
-    input:
-        "data/{label}_qpoint_phonon_modes.json",
-        "results/{label}_mantid_isotropic_fundamentals.json",
-    output:
-        "results/{label}_isotropic_fundamentals.json",
-    conda:
-        "envs/abinslib.yml"
-    script:
-        "scripts/write_isotropic_fundamentals.py"
-
-rule write_almost_isotropic_fundamentals:
-    input:
-        "data/{label}_qpoint_phonon_modes.json",
-        "results/{label}_mantid_almost_isotropic_fundamentals.json",
-    output:
-        "results/{label}_almost_isotropic_fundamentals.json",
-    conda:
-        "envs/abinslib.yml"
-    script:
-        "scripts/write_almost_isotropic_fundamentals.py"
-
-
-rule write_second_order:
-    """Second order almost-isotropic approximation"""
-    input:
-        "data/{label}_qpoint_phonon_modes.json",
-        "results/{label}_mantid_second_order.json",
-    output:
-        "results/{label}_second_order.json",
-    conda:
-        "envs/abinslib.yml"
-    script:
-        "scripts/write_second_order.py"
-
-
 rule write_second_order_mantid:
    input:
        "data/{label}_qpoint_phonon_modes.json",
    output:
        "results/{label}_mantid_second_order.json",
-   conda:
-       "envs/mantid.yml"
    params:
        raw=True,
        abins_kwargs=config["abins_kwargs"]
