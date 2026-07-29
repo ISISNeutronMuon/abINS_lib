@@ -2,17 +2,21 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
+from collections.abc import Iterable
 import importlib.resources
 from pathlib import Path
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from pooch import Pooch
-
-
-def _get_registry(cache_name: str, registry_filename: str, base_url: str = "") -> Pooch:
+try:
     import pooch
+except ImportError:
+    pooch = None
+
+
+def _get_registry(
+    cache_name: str, registry_filename: str, base_url: str = ""
+) -> pooch.Pooch | None:
+    if pooch is None:
+        return None
 
     pooch_registry = pooch.create(
         path=pooch.os_cache(cache_name),
@@ -26,32 +30,16 @@ def _get_registry(cache_name: str, registry_filename: str, base_url: str = "") -
     return pooch_registry
 
 
-def _setup_ref_data() -> Pooch:
-    return _get_registry(
-        "abinslib",
-        "registry.txt",
-        base_url="",  # URLs are defined inline in registry.txt
-    )
-
-
-def _setup_validation_data() -> Pooch:
-    return _get_registry(
-        "abinslib-validation",
-        "registry_validation.txt",
-        base_url="https://github.com/ISISNeutronMuon/abINS_lib/releases/download/validation-data-v1/",
-    )
-
-
-def _get_pooch_or_none(setup_func: Callable[[], Pooch]) -> Pooch | None:
-    try:
-        import pooch  # noqa: F401
-    except ImportError:
-        return None
-    return setup_func()
-
-
-_EUPHONIC_TEST_DATA: Pooch | None = _get_pooch_or_none(_setup_ref_data)
-_VALIDATION_DATA: Pooch | None = _get_pooch_or_none(_setup_validation_data)
+_EUPHONIC_TEST_DATA: pooch.Pooch | None = _get_registry(
+    "abinslib",
+    "registry.txt",
+    base_url="",  # URLs are defined inline in registry.txt
+)
+_VALIDATION_DATA: pooch.Pooch | None = _get_registry(
+    "abinslib-validation",
+    "registry_validation.txt",
+    base_url="https://github.com/ISISNeutronMuon/abINS_lib/releases/download/validation-data-v1/",
+)
 
 
 def _setup_validation_search_dirs() -> tuple[Path, ...]:

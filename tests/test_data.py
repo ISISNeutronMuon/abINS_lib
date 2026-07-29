@@ -36,10 +36,25 @@ def test_validation_registry_entries():
 
 
 def test_pooch_import_handler(monkeypatch):
-    """Check _get_pooch_or_none returns None if no pooch available"""
-    monkeypatch.setitem(sys.modules, "pooch", None)
+    """Check _get_registry returns None if no pooch available."""
+    monkeypatch.setattr(abinslib.data, "pooch", None)
 
-    assert abinslib.data._get_pooch_or_none(abinslib.data._setup_ref_data) is None
+    assert abinslib.data._get_registry("abinslib", "registry.txt") is None
+
+
+def test_pooch_module_import_failure(monkeypatch):
+    """Check module load behavior when pooch import fails."""
+    import importlib
+
+    monkeypatch.setitem(sys.modules, "pooch", None)
+    importlib.reload(abinslib.data)
+
+    assert abinslib.data.pooch is None
+    assert abinslib.data._EUPHONIC_TEST_DATA is None
+    assert abinslib.data._VALIDATION_DATA is None
+
+    monkeypatch.undo()
+    importlib.reload(abinslib.data)
 
 
 def test_missing_pooch_error(monkeypatch):
