@@ -24,6 +24,8 @@ from dataclasses import dataclass
 from functools import cached_property
 from typing import TYPE_CHECKING, Self
 
+from typing_extensions import Self
+
 from euphonic import Quantity
 import numpy as np
 
