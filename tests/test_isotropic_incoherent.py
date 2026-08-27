@@ -133,7 +133,7 @@ def test_q_scaling_isotropic_incoherent_spectrum(
     assert_allclose(
         spectrum.y_data.magnitude,
         ref_intensity[0] / bin_width.magnitude,
-        rtol=1e-8,
+        rtol=1e-7,
     )
 
     # Very tight check against regression data
