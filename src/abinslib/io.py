@@ -6,10 +6,11 @@ from abc import ABC, abstractmethod
 from collections.abc import Mapping
 import json
 from pathlib import Path
-from typing import Any, Self
+from typing import Any
 import warnings
 
 from packaging.version import parse as parse_version
+from typing_extensions import Self
 
 from .util import get_version
 
