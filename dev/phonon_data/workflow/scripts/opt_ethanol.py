@@ -17,7 +17,6 @@ def opt_ethanol(calc: UPETCalculator, traj: Path) -> Atoms:
     agreement with experiment (or even DFT)... but should be broadly physical
     and good enough for testing phonon methods.
     """
-
     # Make periodic cell for consistent phonon approach later
     atoms = ase.build.molecule("CH3CH2OH", vacuum=6.0, pbc=True)
     atoms.calc = calc

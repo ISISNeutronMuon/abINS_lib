@@ -1,5 +1,7 @@
 """Utility functions, not specific to one calculation type."""
 
+from __future__ import annotations
+
 from euphonic import Quantity
 import numpy as np
 
