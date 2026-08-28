@@ -7,12 +7,11 @@ from dataclasses import dataclass
 from importlib.metadata import PackageNotFoundError, version
 from typing import TYPE_CHECKING, TypedDict
 
-from typing_extensions import Self
-
 from euphonic import Quantity
 from euphonic.isotopes import Structure, sears_1992
 from euphonic.spectra import Spectrum1DCollection
 import numpy as np
+from typing_extensions import Self
 
 if TYPE_CHECKING:
     from euphonic.isotopes import IsotopeData

@@ -24,10 +24,9 @@ from dataclasses import dataclass
 from functools import cached_property
 from typing import TYPE_CHECKING, TypedDict
 
-from typing_extensions import Self
-
 from euphonic import Quantity
 import numpy as np
+from typing_extensions import Self
 
 from .bose import BoseOccupation, calculate_bose_factor
 from .io import JSONMixin
