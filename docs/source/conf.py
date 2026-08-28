@@ -82,7 +82,7 @@ html_theme_options = {
 autoapi_type = "python"
 autoapi_dirs = ["../../src"]
 autoapi_keep_files = False  # Set true for debugging
-# autoapi_add_toctree_entry = False
+autoapi_add_toctree_entry = False
 autoapi_options = [
     "members",
     "undoc-members",
