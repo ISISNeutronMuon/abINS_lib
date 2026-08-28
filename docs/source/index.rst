@@ -21,9 +21,10 @@ to `ResINS <https://pace-neutrons.github.io/resins/>`_.
 
 .. toctree::
    :maxdepth: 2
+   :titlesonly:
    :caption: Contents:
 
    auto_examples/index
    development/index
    changelog
-   autoapi/index
+   API Reference <autoapi/abinslib/index>
