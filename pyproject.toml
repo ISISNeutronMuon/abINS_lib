@@ -6,14 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "abinslib"
 version = "0.1.0.post1"
 description = "Inelastic neutron-scattering intensities from phonons."
-long_description = """\
-A library of calculation methods for inelastic neutron-scattering intensities from harmonic phonon simulation data.
-
-This is intended to reproduce the calculations of the Abins algorithms in Mantid and make them more broadly available - eventually acting as a backend for that package.
-It should also function as a playground for method development and benchmarking of different approximations in this area.
-
-End users are primarily expected to interact with abinslib through downstream software: Mantid, workflow managers, alternative GUIs... The API is allowed to be a bit strict and dry compared to some scientific libraries, as the target audience are research software engineers.
-"""
+readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "euphonic >= 2.0.0,<3",
