@@ -25,4 +25,5 @@ to `ResINS <https://pace-neutrons.github.io/resins/>`_.
 
    auto_examples/index
    development/index
+   changelog
    autoapi/index
