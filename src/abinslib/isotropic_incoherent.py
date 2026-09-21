@@ -130,7 +130,7 @@ def calculate_isotropic_incoherent_spectra(
     intensity will be based on a separate array of nominal Q^2 values
     corresponding to modes. This is intended to approximate powder-averaging
     with kinematic constraints: for indirect geometry the energy-Q^2
-    relationship can be determined using abinslib.utils.calculate_indirect_q2.
+    relationship can be determined using abinslib.util.calculate_indirect_q2.
 
     Args:
         modes: phonon frequency and eigenvector dataset
@@ -190,7 +190,7 @@ def q_scaling_isotropic_incoherent_spectra(
     corresponding to energy bins. This is intended to approximate
     powder-averaging with kinematic constraints: for indirect geometry the
     energy-Q^2 relationship can be determined using
-    abinslib.utils.calculate_indirect_q2.
+    abinslib.util.calculate_indirect_q2.
 
     Args:
         modes: phonon frequency and eigenvector dataset

@@ -5,6 +5,15 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### API and Data Model Changes
+- **BREAKING**: `mantid_like_combination_spectra` now returns a collection with one spectrum per atom instead of one per (q-point, atom). This was always the intended behaviour, but as downstream code might depend on the current behaviour we treat the bugfix as a breaking change.
+  - The return shape changes from `(n_qpts * n_atoms, n_bins)` to `(n_atoms, n_bins)`.
+  - The "qpt" line data is no longer present in the metadata as lines cover multiple q-points.
+  - After a `.sum()` or `.group_by(<not qpt>)` we end up in the same place as before.
+
+### Performance Improvements
+- **Linear scaling with q-point count**: `mantid_like_combination_spectra` now accumulates per-q-point contributions as arrays and constructs the result collection once, making the function linear in q-point count (O(n)) instead of quadratic (O(n²)). In practice this _drastically_ reduces memory usage and execution time.
+
 ## [0.2.0] - 2026-08-28
 
 This release includes improvements to tutorial and validation workflows, and adds JSON serialization for `Displacements`. The main breaking change is the decoupling of cross-section weighting into an explicit `apply_weights` step.

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from euphonic import QpointPhononModes, Quantity, ureg
+from collections.abc import Iterator
+
+from euphonic import QpointPhononModes, Quantity
 from euphonic.spectra import Spectrum1DCollection
 import numpy as np
 
@@ -164,7 +166,7 @@ def calculate_almost_isotropic_incoherent_spectra(
     intensity will be based on a separate array of nominal Q^2 values
     corresponding to modes. This is intended to approximate powder-averaging
     with kinematic constraints: for indirect geometry the energy-Q^2
-    relationship can be determined using abinslib.utils.calculate_indirect_q2.
+    relationship can be determined using abinslib.util.calculate_indirect_q2.
 
     Args:
         modes: phonon frequency and eigenvector dataset
@@ -217,7 +219,7 @@ def calculate_almost_isotropic_incoherent_combination_spectra(
     intensity will be based on a separate array of nominal Q^2 values
     corresponding to modes. This is intended to approximate powder-averaging
     with kinematic constraints: for indirect geometry the energy-Q^2
-    relationship can be determined using abinslib.utils.calculate_indirect_q2.
+    relationship can be determined using abinslib.util.calculate_indirect_q2.
 
     These should be determined for each two-phonon combination
 
@@ -288,7 +290,7 @@ def q_scaling_almost_isotropic_incoherent_combination_spectra(
         nominal_q2:
             Scalar Q^2 values corresponding to bin centres. For indirect geometry the
            energy-Q^2 relationship can be determined using
-           abinslib.utils.calculate_indirect_q2.
+           abinslib.util.calculate_indirect_q2.
         bins:
             Energy or frequency bins used as x_data in resulting spectra
 
@@ -329,49 +331,34 @@ def q_scaling_almost_isotropic_incoherent_combination_spectra(
     return spectra
 
 
-def mantid_like_combination_spectra(
+def _iter_mantid_like_combination_qpt_spectra(
     modes: QpointPhononModes,
     mode_displacements: Displacements,
     atomic_displacements: Quantity,
     nominal_q2: Quantity,
     bins: Quantity,
-) -> Spectrum1DCollection:
-    """Calculate two-phonon intensities with approximations from Abins-Mantid.
+) -> Iterator[Spectrum1DCollection]:
+    """Iterate over per-q-point spectra collections for Mantid-like calculation.
 
-    Currently the emphasis is on reproducibility, not efficiency.
-
-    - DOS-like almost-isotropic incoherent approximation (i.e. semi-analytic
-      powder-averaging equations with traces and contractions)
-    - Calculate at nominal Q=1, rescale for Q4 relation and apply Debye-Waller
-      _after_ binning
-    - Treat each input q-point independently:
-      - only consider combination modes at each q
-      - weight each of these spectra with the weight of corresponding q
-    - Order-2 scale factor is 1/60 for overtones and 1/30 for combinations
-
-    - DW factor *is* still correctly averaged over q-point contributions
+    This is a private iterator that yields weighted per-q-point
+    Spectrum1DCollection instances. It is an internal implementation detail
+    that separates the q-point physics from the combination strategy.
 
     Args:
         modes: phonon frequency and eigenvector dataset
         mode_displacements: phonon mode displacement dataset
-            (This can be obtained using :func:`Displacements.from_modes(modes)`.)
         atomic_displacements: thermal average atomic displacements indexed
             (atom, direction, direction)
         nominal_q2:
-            Scalar Q^2 values corresponding to bin centres. For indirect geometry the
-           energy-Q^2 relationship can be determined using
-           abinslib.utils.calculate_indirect_q2.
+            Scalar Q^2 values corresponding to bin centres.
         bins:
             Energy or frequency bins used as x_data in resulting spectra
 
-    Returns:
-        binned spectra of contribution from each nucleus
+    Yields:
+        Spectrum1DCollection for each q-point, with y_data weighted by
+        modes.weights[q_index]
 
     """
-    spectra = Spectrum1DCollection(
-        bins, np.empty((0, len(bins))) * ureg("barn") / bins.units
-    )
-
     for q_index, weight in enumerate(modes.weights):
         qpt_modes = QpointPhononModes(
             crystal=modes.crystal,
@@ -395,21 +382,64 @@ def mantid_like_combination_spectra(
             bins=bins,
         )
 
-        # Apply a couple of quirks from Mantid-Abins implementation:
-        #
-        # Exact origins/implications are being investigated, but these are
-        # needed to reproduce established Mantid-Abins results (which agree
-        # with expt well enough...)
-        #
-        # - Re-weight for current q-point (instead of product of weights)
-        # - Apply 1/n! weighting on top of 1/15C mode weighting
+        qpt_spectra.y_data *= weight
+        yield qpt_spectra
 
-        qpt_spectra.y_data = qpt_spectra.y_data * weight * 0.5
-        qpt_spectra.metadata["qpt"] = str(modes.qpts[q_index])
 
-        spectra = spectra + qpt_spectra
+def mantid_like_combination_spectra(
+    modes: QpointPhononModes,
+    mode_displacements: Displacements,
+    atomic_displacements: Quantity,
+    nominal_q2: Quantity,
+    bins: Quantity,
+) -> Spectrum1DCollection:
+    """Calculate two-phonon intensities with approximations from Abins-Mantid.
 
-    spectra.group_by("atom_index")  # Combine q-point contributions
+    This reproduces Mantid-Abins quirks and approximations while scaling
+    linearly with q-point count.
+
+    - DOS-like almost-isotropic incoherent approximation (i.e. semi-analytic
+      powder-averaging equations with traces and contractions)
+    - Calculate at nominal Q=1, rescale for Q4 relation and apply Debye-Waller
+      _after_ binning
+    - Treat each input q-point independently:
+      - only consider combination modes at each q
+      - weight each of these spectra with the weight of corresponding q
+    - Order-2 scale factor is 1/60 for overtones and 1/30 for combinations
+
+    - DW factor *is* still correctly averaged over q-point contributions
+
+    Args:
+        modes: phonon frequency and eigenvector dataset
+        mode_displacements: phonon mode displacement dataset
+            (This can be obtained using :func:`Displacements.from_modes(modes)`.)
+        atomic_displacements: thermal average atomic displacements indexed
+            (atom, direction, direction)
+        nominal_q2:
+            Scalar Q^2 values corresponding to bin centres. For indirect geometry the
+           energy-Q^2 relationship can be determined using
+           abinslib.util.calculate_indirect_q2.
+        bins:
+            Energy or frequency bins used as x_data in resulting spectra
+
+    Returns:
+        binned spectra of contribution from each nucleus (one spectrum per atom)
+
+    """
+    spectra_iter = _iter_mantid_like_combination_qpt_spectra(
+        modes=modes,
+        mode_displacements=mode_displacements,
+        atomic_displacements=atomic_displacements,
+        nominal_q2=nominal_q2,
+        bins=bins,
+    )
+    spectra = next(spectra_iter)
+
+    for qpt_spectra in spectra_iter:
+        spectra.y_data += qpt_spectra.y_data
+
+    # This is the 1/n! factor for n=2 (second-order/ two-phonon processes)
+    spectra.y_data *= 0.5
 
     return spectra
 

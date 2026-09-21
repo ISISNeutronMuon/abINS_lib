@@ -6,7 +6,7 @@
 # abinslib
 A library for dynamical structure factor calculations from phonon data in the harmonic approximation.
 
-**This is still in alpha: if using for production, pin a minor version number (e.g. `abinslib~=0.1.0`)**
+**This is still in alpha: if using for production, pin a minor version number (e.g. `abinslib~=0.3.0`)**
 
 Abinslib implements a variety of simulation methods for inelastic neutron scattering (INS) from phonons,
 in the general CLIMAX/abINS lineage.  Most of these approximations have not been rigorously compared,

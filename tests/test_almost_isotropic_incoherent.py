@@ -245,6 +245,22 @@ def test_mantid_like_combination_spectra(
         bins,
     )
 
+    # Verify collection is flattened over q-points to one spectrum per atom
+    n_atoms = modes.crystal.n_atoms
+    assert len(spectra) == n_atoms, (
+        f"Expected {n_atoms} spectra (one per atom), got {len(spectra)}"
+    )
+
+    # Verify per-row 'qpt' metadata is absent while atom attributes are preserved
+    assert "line_data" in spectra.metadata, "Expected 'line_data' in metadata"
+    for i, line_item in enumerate(spectra.metadata["line_data"]):
+        assert "qpt" not in line_item, (
+            f"'qpt' should be absent from line_data[{i}], but found: {line_item}"
+        )
+        assert "atom_index" in line_item, f"Missing 'atom_index' in line_data[{i}]"
+        assert "atom_symbol" in line_item, f"Missing 'atom_symbol' in line_data[{i}]"
+        assert "mass" in line_item, f"Missing 'mass' in line_data[{i}]"
+
     ndarrays_regression.check(
         {
             "x_data": spectra.x_data.magnitude,
