@@ -5,6 +5,8 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-21
+
 ### API and Data Model Changes
 - **BREAKING**: `mantid_like_combination_spectra` now returns a collection with one spectrum per atom instead of one per (q-point, atom). This was always the intended behaviour, but as downstream code might depend on the current behaviour we treat the bugfix as a breaking change.
   - The return shape changes from `(n_qpts * n_atoms, n_bins)` to `(n_atoms, n_bins)`.
@@ -28,7 +30,7 @@ This release includes improvements to tutorial and validation workflows, and add
 ### New Features
 - **JSON Serialization**: Added `abinslib.io` module with `JsonMixin`: this provides  `to_json`, `from_json`, `to_json_file`, and `from_json_file` methods to classes that implement `to_dict` and `from_dict`.
   - Includes and validates API version and class metadata on deserialization.
-  - This functionality is added to the `Displacements` class.  
+  - This functionality is added to the `Displacements` class.
 - **Sample Data Management**: Added `abinslib.data` module using `pooch` to fetch sample and validation data on demand from machine-readable registries in `abinslib.registries`. This keeps the source repository light while making realistic data conveniently available for tutorials and validation.
 
 ### Documentation & Tutorials
@@ -49,6 +51,7 @@ This release includes improvements to tutorial and validation workflows, and add
 - Support for 1-D and 2-D almost-isotropic and isotropic incoherent inelastic neutron-scattering intensities from harmonic phonon modes.
 - Integration with Euphonic 2.0 and ResINS 0.1.
 
-[Unreleased]: https://github.com/isisneutronmuon/abINS_lib/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/isisneutronmuon/abINS_lib/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/isisneutronmuon/abINS_lib/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/isisneutronmuon/abINS_lib/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/isisneutronmuon/abINS_lib/releases/tag/v0.1.0
