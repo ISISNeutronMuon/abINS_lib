@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Generator
+from collections.abc import Iterator
 
 from euphonic import QpointPhononModes, Quantity
 from euphonic.spectra import Spectrum1DCollection
@@ -337,12 +337,12 @@ def _iter_mantid_like_combination_qpt_spectra(
     atomic_displacements: Quantity,
     nominal_q2: Quantity,
     bins: Quantity,
-) -> Generator[Spectrum1DCollection, None, None]:
-    """Generate per-q-point spectra collections for Mantid-like calculation.
+) -> Iterator[Spectrum1DCollection]:
+    """Iterate over per-q-point spectra collections for Mantid-like calculation.
 
-    This is a private generator that yields weighted per-q-point Spectrum1DCollection
-    instances. The generator is an internal implementation detail that separates
-    the q-point physics from the combination strategy.
+    This is a private iterator that yields weighted per-q-point
+    Spectrum1DCollection instances. It is an internal implementation detail
+    that separates the q-point physics from the combination strategy.
 
     Args:
         modes: phonon frequency and eigenvector dataset

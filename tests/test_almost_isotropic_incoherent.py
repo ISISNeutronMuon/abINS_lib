@@ -376,7 +376,7 @@ def test_mantid_like_combination_spectra_invariance(
 def test_iter_mantid_like_combination_qpt_spectra_yields_correct_shape(
     temperature_k, tosca_modes
 ):
-    """Test that generator yields N_q Spectrum1DCollections with N_a rows each."""
+    """Test that iterator yields N_q Spectrum1DCollections with N_a rows each."""
     from euphonic.spectra import Spectrum1DCollection
 
     from abinslib.almost_isotropic_incoherent import (
