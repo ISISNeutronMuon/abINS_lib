@@ -13,7 +13,7 @@ to `ResINS <https://pace-neutrons.github.io/resins/>`_.
 
   The library is currently in alpha state: we expect that functions will
   be renamed and moved around. In order to use this package in prototype
-  code, please pin to the minor version number e.g. ``abinslib~=0.1.0``.
+  code, please pin to the minor version number e.g. ``abinslib~=0.3.0``.
 
   When the API is stable, the major version number will be increased to
   1.0. This follows `Semantic Versioning <https://semver.org/>`_ as also

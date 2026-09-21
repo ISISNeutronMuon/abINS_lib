@@ -166,7 +166,7 @@ def calculate_almost_isotropic_incoherent_spectra(
     intensity will be based on a separate array of nominal Q^2 values
     corresponding to modes. This is intended to approximate powder-averaging
     with kinematic constraints: for indirect geometry the energy-Q^2
-    relationship can be determined using abinslib.utils.calculate_indirect_q2.
+    relationship can be determined using abinslib.util.calculate_indirect_q2.
 
     Args:
         modes: phonon frequency and eigenvector dataset
@@ -219,7 +219,7 @@ def calculate_almost_isotropic_incoherent_combination_spectra(
     intensity will be based on a separate array of nominal Q^2 values
     corresponding to modes. This is intended to approximate powder-averaging
     with kinematic constraints: for indirect geometry the energy-Q^2
-    relationship can be determined using abinslib.utils.calculate_indirect_q2.
+    relationship can be determined using abinslib.util.calculate_indirect_q2.
 
     These should be determined for each two-phonon combination
 
@@ -290,7 +290,7 @@ def q_scaling_almost_isotropic_incoherent_combination_spectra(
         nominal_q2:
             Scalar Q^2 values corresponding to bin centres. For indirect geometry the
            energy-Q^2 relationship can be determined using
-           abinslib.utils.calculate_indirect_q2.
+           abinslib.util.calculate_indirect_q2.
         bins:
             Energy or frequency bins used as x_data in resulting spectra
 
@@ -395,7 +395,8 @@ def mantid_like_combination_spectra(
 ) -> Spectrum1DCollection:
     """Calculate two-phonon intensities with approximations from Abins-Mantid.
 
-    Currently the emphasis is on reproducibility, not efficiency.
+    This reproduces Mantid-Abins quirks and approximations while scaling
+    linearly with q-point count.
 
     - DOS-like almost-isotropic incoherent approximation (i.e. semi-analytic
       powder-averaging equations with traces and contractions)
@@ -417,12 +418,12 @@ def mantid_like_combination_spectra(
         nominal_q2:
             Scalar Q^2 values corresponding to bin centres. For indirect geometry the
            energy-Q^2 relationship can be determined using
-           abinslib.utils.calculate_indirect_q2.
+           abinslib.util.calculate_indirect_q2.
         bins:
             Energy or frequency bins used as x_data in resulting spectra
 
     Returns:
-        binned spectra of contribution from each nucleus
+        binned spectra of contribution from each nucleus (one spectrum per atom)
 
     """
     spectra_iter = _iter_mantid_like_combination_qpt_spectra(
