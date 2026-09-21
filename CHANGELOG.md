@@ -6,18 +6,13 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### API and Data Model Changes
-- **BREAKING**: `mantid_like_combination_spectra` now returns a flattened collection with one spectrum per atom instead of one per (q-point, atom). This is the behavior the discarded `group_by("atom_index")` call always intended.
-  - Return shape changed from `(n_qpts * n_atoms, n_bins)` to `(n_atoms, n_bins)`.
-  - Per-row `metadata["qpt"]` is no longer present in the result. It only survived due to the broken grouping and is meaningless on a spectrum combining multiple q-points.
-  - Downstream consumers that reduce over rows (e.g., `.sum()`) are numerically unaffected.
+- **BREAKING**: `mantid_like_combination_spectra` now returns a collection with one spectrum per atom instead of one per (q-point, atom). This was always the intended behaviour, but as downstream code might depend on the current behaviour we treat the bugfix as a breaking change.
+  - The return shape changes from `(n_qpts * n_atoms, n_bins)` to `(n_atoms, n_bins)`.
+  - The "qpt" line data is no longer present in the metadata as lines cover multiple q-points.
+  - After a `.sum()` or `.group_by(<not qpt>)` we end up in the same place as before.
 
 ### Performance Improvements
-- **Linear scaling with q-point count**: `mantid_like_combination_spectra` now accumulates per-q-point contributions as arrays and constructs the result collection once, making the function linear in q-point count (O(n)) instead of quadratic (O(n²)).
-  - Peak memory usage reduced from ~24 MB to ~0.7 MB at 64 q-points for a test system.
-  - Execution time at 128 q-points reduced from ~44 s to ~0.45 s (measured on synthetic ethanol data with 27 bands, 9 atoms, 1000 bins).
-
-### Bug Fixes
-- Fixed discarded `group_by("atom_index")` call in `mantid_like_combination_spectra` that caused incorrect return shape.
+- **Linear scaling with q-point count**: `mantid_like_combination_spectra` now accumulates per-q-point contributions as arrays and constructs the result collection once, making the function linear in q-point count (O(n)) instead of quadratic (O(n²)). In practice this _drastically_ reduces memory usage and execution time.
 
 ## [0.2.0] - 2026-08-28
 
