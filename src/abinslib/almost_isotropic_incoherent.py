@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from euphonic import QpointPhononModes, Quantity, ureg
+from collections.abc import Generator
+
+from euphonic import QpointPhononModes, Quantity
 from euphonic.spectra import Spectrum1DCollection
 import numpy as np
 
@@ -329,6 +331,61 @@ def q_scaling_almost_isotropic_incoherent_combination_spectra(
     return spectra
 
 
+def _iter_mantid_like_combination_qpt_spectra(
+    modes: QpointPhononModes,
+    mode_displacements: Displacements,
+    atomic_displacements: Quantity,
+    nominal_q2: Quantity,
+    bins: Quantity,
+) -> Generator[Spectrum1DCollection, None, None]:
+    """Generate per-q-point spectra collections for Mantid-like calculation.
+
+    This is a private generator that yields weighted per-q-point Spectrum1DCollection
+    instances. The generator is an internal implementation detail that separates
+    the q-point physics from the combination strategy.
+
+    Args:
+        modes: phonon frequency and eigenvector dataset
+        mode_displacements: phonon mode displacement dataset
+        atomic_displacements: thermal average atomic displacements indexed
+            (atom, direction, direction)
+        nominal_q2:
+            Scalar Q^2 values corresponding to bin centres.
+        bins:
+            Energy or frequency bins used as x_data in resulting spectra
+
+    Yields:
+        Spectrum1DCollection for each q-point, with y_data weighted by
+        modes.weights[q_index]
+
+    """
+    for q_index, weight in enumerate(modes.weights):
+        qpt_modes = QpointPhononModes(
+            crystal=modes.crystal,
+            qpts=modes.qpts[np.newaxis, q_index],
+            frequencies=modes.frequencies[np.newaxis, q_index],
+            eigenvectors=modes.eigenvectors[np.newaxis, q_index],
+            weights=np.array([1.0]),
+        )
+        qpt_displacements = Displacements(
+            displacements=mode_displacements.displacements[np.newaxis, q_index],
+            weights=np.array([1.0]),
+            bose_n=mode_displacements.bose_n[np.newaxis, q_index],
+            temperature=mode_displacements.temperature,
+        )
+
+        qpt_spectra = q_scaling_almost_isotropic_incoherent_combination_spectra(
+            modes=qpt_modes,
+            mode_displacements=qpt_displacements,
+            atomic_displacements=atomic_displacements,
+            nominal_q2=nominal_q2,
+            bins=bins,
+        )
+
+        qpt_spectra.y_data *= weight
+        yield qpt_spectra
+
+
 def mantid_like_combination_spectra(
     modes: QpointPhononModes,
     mode_displacements: Displacements,
@@ -368,48 +425,21 @@ def mantid_like_combination_spectra(
         binned spectra of contribution from each nucleus
 
     """
-    spectra = Spectrum1DCollection(
-        bins, np.empty((0, len(bins))) * ureg("barn") / bins.units
+    spectra_iter = _iter_mantid_like_combination_qpt_spectra(
+        modes=modes,
+        mode_displacements=mode_displacements,
+        atomic_displacements=atomic_displacements,
+        nominal_q2=nominal_q2,
+        bins=bins,
     )
+    spectra = next(spectra_iter)
 
-    for q_index, weight in enumerate(modes.weights):
-        qpt_modes = QpointPhononModes(
-            crystal=modes.crystal,
-            qpts=modes.qpts[np.newaxis, q_index],
-            frequencies=modes.frequencies[np.newaxis, q_index],
-            eigenvectors=modes.eigenvectors[np.newaxis, q_index],
-            weights=np.array([1.0]),
-        )
-        qpt_displacements = Displacements(
-            displacements=mode_displacements.displacements[np.newaxis, q_index],
-            weights=np.array([1.0]),
-            bose_n=mode_displacements.bose_n[np.newaxis, q_index],
-            temperature=mode_displacements.temperature,
-        )
+    for qpt_spectra in spectra_iter:
+        spectra.y_data += qpt_spectra.y_data
 
-        qpt_spectra = q_scaling_almost_isotropic_incoherent_combination_spectra(
-            modes=qpt_modes,
-            mode_displacements=qpt_displacements,
-            atomic_displacements=atomic_displacements,
-            nominal_q2=nominal_q2,
-            bins=bins,
-        )
-
-        # Apply a couple of quirks from Mantid-Abins implementation:
-        #
-        # Exact origins/implications are being investigated, but these are
-        # needed to reproduce established Mantid-Abins results (which agree
-        # with expt well enough...)
-        #
-        # - Re-weight for current q-point (instead of product of weights)
-        # - Apply 1/n! weighting on top of 1/15C mode weighting
-
-        qpt_spectra.y_data = qpt_spectra.y_data * weight * 0.5
-        qpt_spectra.metadata["qpt"] = str(modes.qpts[q_index])
-
-        spectra = spectra + qpt_spectra
-
-    spectra.group_by("atom_index")  # Combine q-point contributions
+    # Apply the prominent 0.5 scaling factor at the top collection level
+    # This is the 1/n! factor for n=2 (second-order/ two-phonon processes)
+    spectra.y_data *= 0.5
 
     return spectra
 
