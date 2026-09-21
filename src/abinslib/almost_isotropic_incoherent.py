@@ -437,7 +437,6 @@ def mantid_like_combination_spectra(
     for qpt_spectra in spectra_iter:
         spectra.y_data += qpt_spectra.y_data
 
-    # Apply the prominent 0.5 scaling factor at the top collection level
     # This is the 1/n! factor for n=2 (second-order/ two-phonon processes)
     spectra.y_data *= 0.5
 
