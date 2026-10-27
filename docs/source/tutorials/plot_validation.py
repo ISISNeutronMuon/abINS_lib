@@ -183,15 +183,18 @@ plot_validation_comparison(
 )
 
 # %%
-# Orders 1-2 vs Autoconvolution
-# -----------------------------
-# Mantid-Abins autoconvolution spectra are generated for two initial quantum
+# Orders 1-2 vs Mantid calculations with Autoconvolution
+# ------------------------------------------------------
+# Mantid-Abins autoconvolution spectra are generated from two initial quantum
 # orders, 1 and 2. Each file holds quantum orders 1 to 10 and each order is
 # selected by its metadata label, summed over atoms.
 #
+# First we check that the non-autoconvolution orders agree with the functions
+# already validated above.
+#
 # Order 1 is the same in both files and is taken from the initial-order-1
 # file. It is computed directly, and abinslib agrees with it to numerical
-# precision.
+# precision when using `calculate_almost_isotropic_incoherent_spectra`.
 #
 # Order 2 is taken from the initial-order-2 file, where it is computed directly
 # rather than by autoconvolution. It is compared with
@@ -264,10 +267,10 @@ plot_validation_comparison(
 # %%
 # Total Spectra (All Orders)
 # --------------------------
-# Total spectra are summed over quantum orders and atoms. Each Mantid file
-# already sums over atoms within each order, so summing over orders gives the
-# total. abinslib computes orders 1 and 2 only, so its total is the sum of
-# those two orders.
+# Autoconvolution is not yet implemented in abinslib, so we visualise what it
+# should add. Broad spectra are produced extending into high frequencies.
+#
+# Total spectra are summed over quantum orders from the reference data.
 #
 # The two Mantid runs give nearly the same total spectrum. Their integrated
 # intensities differ by about 1.7%. Orders 3-10 contribute about 53% of the
