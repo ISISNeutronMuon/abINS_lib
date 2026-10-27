@@ -5,6 +5,9 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Documentation & Tutorials
+- Added Mantid-Abins autoconvolution validation data for ethanol, generated with initial quantum order 1 and 2. Each file holds quantum orders 1-10 as one spectrum collection, labelled by quantum order. Gallery example "Orders 1-2 vs autoconvolution" compares abinslib orders 1 and 2 with the initial-order-1 and initial-order-2 files respectively, and compares total spectra summed over orders and atoms. Both orders agree with abinslib to numerical precision. Orders 3-10 differ between the two initial-order files.
+
 ## [0.3.0] - 2026-09-21
 
 ### API and Data Model Changes
