@@ -55,11 +55,13 @@ def plot_validation_comparison(
     title: str,
     xlim: float,
     width: Quantity = Quantity(1, "meV"),
+    yscale: str = "log",
 ) -> None:
     """Plot two spectra for comparison.
 
     Fixed-width Gaussian broadening is added as a visual aid and approximation
-    to instrumental resolution.
+    to instrumental resolution. A log y-scale is suited to high-precision
+    comparison; use ``yscale="linear"`` to check that spectra look physical.
     """
     fig, ax = plt.subplots()
     plot_1d_to_axis(abins_spectrum.broaden(width), ax, label=abins_label)
@@ -72,7 +74,7 @@ def plot_validation_comparison(
     ax.set_xlim(0, xlim)
     ax.set_xlabel("Energy transfer / meV")
     ax.set_ylabel("$S(\\omega)$ / barn meV$^{-1}$")
-    ax.set_yscale("log")
+    ax.set_yscale(yscale)
 
     fig.tight_layout()
     plt.show()
@@ -287,6 +289,7 @@ plot_validation_comparison(
         r"$134.99^\circ E_f = 32 \mathrm{cm}^{-1}$"
     ),
     xlim=420,
+    yscale="linear",
 )
 
 plot_validation_comparison(
@@ -299,5 +302,5 @@ plot_validation_comparison(
         r"$134.99^\circ E_f = 32 \mathrm{cm}^{-1}$"
     ),
     xlim=420,
+    yscale="linear",
 )
-plt.gca().set_yscale("linear")
