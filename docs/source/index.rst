@@ -25,6 +25,7 @@ to `ResINS <https://pace-neutrons.github.io/resins/>`_.
    :caption: Contents:
 
    auto_examples/index
+   convolution
    development/index
    changelog
    API Reference <autoapi/abinslib/index>

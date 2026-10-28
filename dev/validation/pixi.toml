@@ -15,6 +15,8 @@ hashes = "python scripts/hash_results.py"
 check-hashes = "python scripts/hash_results.py | python scripts/check_hashes.py -"
 # Run tests for dev validation scripts
 test = "pytest tests"
+# Time Mantid autoconvolution against abinslib (step 1; step 2 runs in abinslib)
+benchmark-convolution-mantid = "python scripts/convolution_bench_mantid.py"
 
 [dependencies]
 snakemake = "~=9.16.3"
