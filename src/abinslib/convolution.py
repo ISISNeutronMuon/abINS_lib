@@ -25,7 +25,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import warnings
 
-from euphonic import Quantity
+from euphonic import Quantity, ureg
 from euphonic.spectra import Spectrum1D, Spectrum1DCollection
 import numpy as np
 from scipy.fft import irfft, next_fast_len, rfft
@@ -41,16 +41,12 @@ class _GridInfo:
         spacing: Bin width, in ``unit``.
         first_centre: Position of the first bin centre (sample position), in
             ``unit``.
-        unit: Energy unit string of the axis.
-        length: Number of intensity values (bins).
-        is_edges: True if the axis was given as bin edges, False if as centres.
+        unit: Energy unit of the axis.
     """
 
     spacing: float
     first_centre: float
-    unit: str
-    length: int
-    is_edges: bool
+    unit: ureg.Unit
 
 
 def _grid_from_axis(x_data: Quantity, n_values: int) -> _GridInfo:
@@ -65,11 +61,11 @@ def _grid_from_axis(x_data: Quantity, n_values: int) -> _GridInfo:
         Grid description in the axis' own energy unit.
 
     Raises:
-        ValueError: If the axis lengths are inconsistent, the axis has fewer
-            than two bins, it is not increasing, or the bins are irregular.
+        ValueError: If the axis has fewer than two values, is not increasing,
+            or has irregular bins.
     """
     x = np.asarray(x_data.magnitude, dtype=float)
-    unit = str(x_data.units)
+    unit = x_data.units
 
     # Spectrum1D validates that x has N + 1 (edges) or N (centres) values.
     is_edges = x.size == n_values + 1
@@ -90,13 +86,7 @@ def _grid_from_axis(x_data: Quantity, n_values: int) -> _GridInfo:
         )
 
     first_centre = float(x[0]) + spacing / 2 if is_edges else float(x[0])
-    return _GridInfo(
-        spacing=spacing,
-        first_centre=first_centre,
-        unit=unit,
-        length=n_values,
-        is_edges=is_edges,
-    )
+    return _GridInfo(spacing=spacing, first_centre=first_centre, unit=unit)
 
 
 def _same_axis(a: Quantity, n_a: int, b: Quantity, n_b: int) -> bool:
@@ -105,9 +95,7 @@ def _same_axis(a: Quantity, n_a: int, b: Quantity, n_b: int) -> bool:
         return False
     if a is b:
         return True
-    return bool(
-        np.array_equal(a.magnitude, b.magnitude) and str(a.units) == str(b.units)
-    )
+    return bool(np.array_equal(a.magnitude, b.magnitude) and a.units == b.units)
 
 
 def _zero_placement(grid: _GridInfo) -> int:
@@ -157,14 +145,9 @@ def _shift_crop(values: np.ndarray, shift: int, length: int) -> np.ndarray:
         Array of ``length`` values.
     """
     out = np.zeros(length)
-    if shift >= 0:
-        n = min(length - shift, values.size)
-        if n > 0:
-            out[shift : shift + n] = values[:n]
-    else:
-        n = min(length, values.size + shift)
-        if n > 0:
-            out[:n] = values[-shift : -shift + n]
+    start, stop = max(0, shift), min(length, shift + values.size)
+    if stop > start:
+        out[start:stop] = values[start - shift : stop - shift]
     return out
 
 
@@ -194,6 +177,7 @@ def _convolve_orders_one_sided(
     Returns:
         Array of shape ``(n_new, N)`` with one row per order.
     """
+    assert shift >= 0, "One-sided convolution requires a non-negative shift."
     n = initial_values.size
     out = np.zeros((n_new, n))
     kernel_length = min(fundamentals_values.size, n - shift)
@@ -201,12 +185,12 @@ def _convolve_orders_one_sided(
         return out
 
     kernel = fundamentals_values[:kernel_length] * spacing
-    nfft = next_fast_len(n + kernel_length - 1, real=True)
-    kernel_hat = rfft(kernel, nfft)
+    n_fft = next_fast_len(n + kernel_length - 1, real=True)
+    kernel_fft = rfft(kernel, n_fft)
 
     row = initial_values
     for k in range(n_new):
-        conv = irfft(rfft(row, nfft) * kernel_hat, nfft)[:n]
+        conv = irfft(rfft(row, n_fft) * kernel_fft, n_fft)
         row = _shift_crop(conv, shift, n)
         out[k] = row
     return out
@@ -253,15 +237,15 @@ def _convolve_orders_padded(
     width = hi - lo + 1
     grid_slice = slice(-lo, -lo + n)
 
-    nfft = next_fast_len(width + length - 1, real=True)
-    kernel_hat = rfft(kernel, nfft)
+    n_fft = next_fast_len(width + length - 1, real=True)
+    kernel_fft = rfft(kernel, n_fft)
 
     row = np.zeros(width)
     row[grid_slice] = initial_values
 
     out = np.zeros((n_new, n))
     for k in range(n_new):
-        conv = irfft(rfft(row, nfft) * kernel_hat, nfft)[: width + length - 1]
+        conv = irfft(rfft(row, n_fft) * kernel_fft, n_fft)[: width + length - 1]
         row = _shift_crop(conv, shift, width)
         out[k] = row[grid_slice]
     return out
@@ -323,7 +307,9 @@ def _resolve_initial_order(initial: Spectrum1D, initial_order: int | None) -> in
     return int(initial_order)
 
 
-def _units_per_fund_unit(initial_unit: str, fundamentals_unit: str) -> float:
+def _units_per_fund_unit(
+    initial_unit: ureg.Unit, fundamentals_unit: ureg.Unit
+) -> float:
     """Number of initial energy units in one fundamentals energy unit.
 
     Args:

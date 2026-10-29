@@ -95,17 +95,15 @@ def _scipy_reference(initial, fundamentals, n_new, shift, spacing, crop_each=Fal
 
 
 @pytest.mark.parametrize(
-    ("x", "n_values", "is_edges", "first_centre"),
+    ("x", "n_values", "first_centre"),
     [
-        pytest.param(_edges(0, 5, 0.5), 5, True, 0.25, id="edges"),
-        pytest.param(_centres(0, 5, 0.5), 5, False, 0.0, id="centres"),
+        pytest.param(_edges(0, 5, 0.5), 5, 0.25, id="edges"),
+        pytest.param(_centres(0, 5, 0.5), 5, 0.0, id="centres"),
     ],
 )
-def test_build_grid(x, n_values, is_edges, first_centre):
+def test_build_grid(x, n_values, first_centre):
     grid = _build_grid(_spectrum(x, np.ones(n_values)))
-    assert bool(grid.is_edges) is is_edges
-    assert grid.length == n_values
-    assert grid.unit == "millielectron_volt"
+    assert grid.unit == Quantity(1, "meV").units
     assert_allclose(grid.spacing, 0.5)
     assert_allclose(grid.first_centre, first_centre, atol=1e-12)
     # A second spectrum on an equal axis gives the same grid information
@@ -149,6 +147,18 @@ _EDGE_PAIR = (_edges(0, 6, 1.0), _edges(0, 6, 1.0))
             ValueError,
             "irregular",
             id="Irregular grid",
+        ),
+        pytest.param(
+            lambda: _build_grid(_spectrum([0.0], np.ones(1))),
+            ValueError,
+            "At least two energy values",
+            id="Fewer than two energy values",
+        ),
+        pytest.param(
+            lambda: _build_grid(_spectrum([3.0, 2.0, 1.0, 0.0], np.ones(4))),
+            ValueError,
+            "must be increasing",
+            id="Decreasing axis",
         ),
         pytest.param(
             lambda: _zero_placement(
