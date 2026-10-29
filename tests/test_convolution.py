@@ -1,11 +1,13 @@
 """Unit tests for abinslib.convolution"""
 
 import itertools
+import re
+import warnings
 
 from euphonic import Quantity
 from euphonic.spectra import Spectrum1D, Spectrum1DCollection
 import numpy as np
-from numpy.testing import assert_allclose, assert_array_equal
+from numpy.testing import assert_allclose
 import pytest
 from scipy.signal import convolve
 
@@ -14,11 +16,14 @@ from abinslib.convolution import (
     _convolve_orders_one_sided,
     _convolve_orders_padded,
     _grid_from_axis,
-    _shift_crop,
     _zero_placement,
     convolve_orders,
 )
 from abinslib.util import apply_weights
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
 
 
 def _spectrum(x, y, unit="meV", metadata=None, y_unit="1/meV"):
@@ -44,19 +49,15 @@ def _edges(first_index, n, d):
     return (first_index + np.arange(n + 1)) * d
 
 
-def _scipy_reference(initial, fundamentals, n_new, shift, spacing):
-    """Repeated full scipy convolution, no intermediate crop, one final crop.
+def _order1(n=12, d=0.5, first=0):
+    rng = np.random.default_rng(99)
+    return _spectrum(
+        _centres(first, n, d), rng.random(n), metadata={"quantum_order": 1}
+    )
 
-    Each order moves its result by the integer shift, which is tracked as an
-    origin; the final array is cropped once to the initial grid.
-    """
-    full = np.asarray(initial, dtype=float)
-    kernel = np.asarray(fundamentals, dtype=float) * spacing
-    origin = 0
-    for _ in range(n_new):
-        full = convolve(full, kernel, mode="full")
-        origin += shift
-    n = len(initial)
+
+def _crop(full, origin, n):
+    """Values of ``full`` at output bins 0..n-1 when full[0] sits at bin ``origin``."""
     out = np.zeros(n)
     for m in range(n):
         c = m - origin
@@ -65,63 +66,221 @@ def _scipy_reference(initial, fundamentals, n_new, shift, spacing):
     return out
 
 
-def _brute_padded_reference(initial, fundamentals, n_new, shift, spacing):
-    """Repeated convolution on a wide window, carried out with scipy."""
+def _scipy_reference(initial, fundamentals, n_new, shift, spacing, crop_each=False):
+    """Repeated full scipy convolution of the initial values with the fundamentals.
+
+    By default there is no intermediate crop: each order moves its result by
+    the integer shift, tracked as an origin, and the array is cropped once at
+    the end. ``crop_each`` crops to the grid after every order instead, as
+    Mantid does, which is only exact when no intensity can return from outside
+    the grid (non-negative shift).
+    """
     n = len(initial)
-    length = len(fundamentals)
-    pad = (n_new + 1) * (abs(shift) + length + 1)
-    grid = np.zeros(n + 2 * pad)
-    grid[pad : pad + n] = initial
     kernel = np.asarray(fundamentals, dtype=float) * spacing
-    rows = []
+    current = np.asarray(initial, dtype=float)
+    if crop_each:
+        for _ in range(n_new):
+            current = _crop(convolve(current, kernel, mode="full"), shift, n)
+        return current
+    origin = 0
     for _ in range(n_new):
-        conv = convolve(grid, kernel, mode="full")
-        moved = np.zeros(grid.size)
-        for q in range(grid.size):
-            c = q - shift
-            if 0 <= c < conv.size:
-                moved[q] = conv[c]
-        grid = moved
-        rows.append(grid[pad : pad + n].copy())
-    return np.array(rows)
+        current = convolve(current, kernel, mode="full")
+        origin += shift
+    return _crop(current, origin, n)
 
 
 # ---------------------------------------------------------------------------
-# 1.1 Grid builder
+# Grid reading and validation
 # ---------------------------------------------------------------------------
 
 
-def test_build_grid_edges():
-    spec = _spectrum(_edges(0, 5, 0.5), np.ones(5))
-    grid = _build_grid(spec)
-    assert grid.is_edges
-    assert grid.length == 5
-    assert_allclose(grid.spacing, 0.5)
-    assert_allclose(grid.first_edge, 0.0)
+@pytest.mark.parametrize(
+    ("x", "n_values", "is_edges", "first_edge", "edge_offset"),
+    [
+        pytest.param(_edges(0, 5, 0.5), 5, True, 0.0, 0.0, id="edges"),
+        # Centres at 0, d, 2d... put the first edge at -d/2: zero is on a centre
+        pytest.param(_centres(0, 5, 0.5), 5, False, -0.25, 0.5, id="centres"),
+    ],
+)
+def test_build_grid(x, n_values, is_edges, first_edge, edge_offset):
+    grid = _build_grid(_spectrum(x, np.ones(n_values)))
+    assert bool(grid.is_edges) is is_edges
+    assert grid.length == n_values
     assert grid.unit == "millielectron_volt"
-    assert_allclose(grid.edge_offset, 0.0, atol=1e-12)
-
-
-def test_build_grid_centres_phase():
-    # Centres at 0, d, 2d..., so the first edge is at -d/2 and zero is on a centre
-    spec = _spectrum(_centres(0, 5, 0.5), np.ones(5))
-    grid = _build_grid(spec)
-    assert not grid.is_edges
     assert_allclose(grid.spacing, 0.5)
-    assert_allclose(grid.first_edge, -0.25)
-    assert_allclose(grid.edge_offset, 0.5, atol=1e-12)
+    assert_allclose(grid.first_edge, first_edge, atol=1e-12)
+    assert_allclose(grid.edge_offset, edge_offset, atol=1e-12)
+    # A second spectrum on an equal axis gives the same grid information
+    assert _build_grid(_spectrum(x.copy(), np.ones(n_values))) == grid
 
 
-def test_build_grid_irregular_names_irregularity():
-    x = np.array([0.0, 1.0, 2.5, 3.0])
-    spec = _spectrum(x, np.ones(3))
-    with pytest.raises(ValueError, match="irregular"):
-        _build_grid(spec)
+# Scenario -> (axis, number of values, expected reading, expected shift).
+# Edges at (k + 0.5) d have a bin centre at zero; centres at (k + 0.5) d have an
+# edge at zero.
+_HALF = (np.arange(7) - 3 + 0.5) * 0.5
+_PLACEMENT_CASES = {
+    "Bin edges include zero": (_edges(-2, 6, 1.0), 6, "lower_edge", -2),
+    "Bin centres at zero given as edges": (_HALF, 6, "centre", -2),
+    "Sampling points include zero": (_centres(-3, 7, 0.5), 7, "centre", -3),
+    "Sampling points offset by half a spacing": (_HALF, 7, "lower_edge", -3),
+    "Grid range excludes zero": (_edges(10, 4, 0.5), 4, "lower_edge", 10),
+}
 
 
-# ---------------------------------------------------------------------------
-# 1.2 Consistency checks
-# ---------------------------------------------------------------------------
+@pytest.mark.parametrize(
+    ("x", "n_values", "reading", "shift"),
+    _PLACEMENT_CASES.values(),
+    ids=_PLACEMENT_CASES.keys(),
+)
+def test_zero_placement(x, n_values, reading, shift):
+    placement = _zero_placement(_build_grid(_spectrum(x, np.ones(n_values))))
+    assert placement.reading == reading
+    assert placement.shift == shift
+
+
+def _pair(init_x, fund_x, init_unit="meV", fund_unit="meV", n=6):
+    return (
+        _spectrum(init_x, np.ones(n), unit=init_unit),
+        _spectrum(fund_x, np.ones(n), unit=fund_unit),
+    )
+
+
+_EDGE_PAIR = (_edges(0, 6, 1.0), _edges(0, 6, 1.0))
+_CENTRE_PAIR = (_centres(-2, 6, 1.0), _centres(-2, 6, 1.0))
+
+
+@pytest.mark.parametrize(
+    ("call", "exception", "match"),
+    [
+        pytest.param(
+            lambda: _build_grid(_spectrum([0.0, 1.0, 2.5, 3.0], np.ones(3))),
+            ValueError,
+            "irregular",
+            id="Irregular grid",
+        ),
+        pytest.param(
+            lambda: _zero_placement(
+                _build_grid(_spectrum(_edges(0, 6, 1.0) + 0.25, np.ones(6)))
+            ),
+            ValueError,
+            "0.25 bin spacings",
+            id="Zero not on a centre or edge",
+        ),
+        pytest.param(
+            lambda: convolve_orders(
+                *_pair(_centres(0, 6, 1.0), _centres(0, 6, 0.5)),
+                max_order=3,
+                initial_order=1,
+            ),
+            ValueError,
+            r"Bin spacings differ.*1 millielectron_volt.*0\.5 millielectron_volt",
+            id="Different spacing",
+        ),
+        pytest.param(
+            lambda: convolve_orders(
+                *_pair(
+                    _centres(0, 4, 1.0), _centres(0, 4, 1.0), fund_unit="kelvin", n=4
+                ),
+                max_order=3,
+                initial_order=1,
+            ),
+            ValueError,
+            "incompatible",
+            id="Incompatible energy units",
+        ),
+        pytest.param(
+            # Wavelength to energy is not a linear rescaling
+            lambda: convolve_orders(
+                *_pair(
+                    _centres(0, 4, 1.0), _centres(0, 4, 1.0), fund_unit="angstrom", n=4
+                ),
+                max_order=3,
+                initial_order=1,
+            ),
+            ValueError,
+            "not linear",
+            id="Non-linear energy conversion",
+        ),
+        pytest.param(
+            lambda: convolve_orders(
+                _order1(), _order1(), max_order=1, bin_position="centre"
+            ),
+            ValueError,
+            "greater than the initial order",
+            id="Maximum order not above the initial order",
+        ),
+        pytest.param(
+            lambda: convolve_orders(
+                _spectrum(_centres(0, 12, 0.5), np.ones(12)),
+                _order1(),
+                max_order=3,
+                bin_position="centre",
+            ),
+            ValueError,
+            "Initial quantum order is unknown",
+            id="No initial order available",
+        ),
+        pytest.param(
+            lambda: convolve_orders(
+                Spectrum1DCollection(
+                    x_data=_order1().x_data, y_data=Quantity(np.ones((2, 12)), "1/meV")
+                ),
+                _order1(),
+                max_order=3,
+                bin_position="centre",
+            ),
+            TypeError,
+            None,
+            id="Collection instead of a spectrum",
+        ),
+        pytest.param(
+            lambda: convolve_orders(
+                *_pair(*_EDGE_PAIR),
+                max_order=3,
+                initial_order=1,
+                bin_position="centre",
+            ),
+            ValueError,
+            "does not match",
+            id="Explicit centre reading on an edge grid",
+        ),
+        pytest.param(
+            lambda: convolve_orders(
+                *_pair(*_CENTRE_PAIR),
+                max_order=3,
+                initial_order=1,
+                bin_position="lower_edge",
+            ),
+            ValueError,
+            "does not match",
+            id="Explicit lower-edge reading on a centre grid",
+        ),
+    ],
+)
+def test_invalid_inputs_raise(call, exception, match):
+    with pytest.raises(exception, match=match):
+        call()
+
+
+@pytest.mark.parametrize(
+    ("bin_position", "warns"),
+    [
+        pytest.param(None, True, id="Default reading warns"),
+        pytest.param("lower_edge", False, id="Explicit reading matches"),
+    ],
+)
+def test_lower_edge_reading_warning(bin_position, warns):
+    init, fund = _pair(*_EDGE_PAIR)
+    with warnings.catch_warnings(record=True) as record:
+        warnings.simplefilter("always")
+        convolve_orders(
+            init, fund, max_order=3, initial_order=1, bin_position=bin_position
+        )
+    messages = [w for w in record if "lower edges" in str(w.message)]
+    assert bool(messages) is warns
+    if warns:
+        assert messages[0].category is UserWarning
+        assert messages[0].filename == __file__
 
 
 def test_convertible_units_with_matching_spacing_proceed():
@@ -149,159 +308,48 @@ def test_convertible_units_with_matching_spacing_proceed():
     )
 
 
-def test_different_spacing_raises_naming_both():
-    init = _spectrum(_centres(0, 6, 1.0), np.ones(6))
-    fund = _spectrum(_centres(0, 6, 0.5), np.ones(6))
-    with pytest.raises(ValueError, match="Bin spacings differ") as info:
-        convolve_orders(init, fund, max_order=3, initial_order=1)
-    message = str(info.value)
-    assert "1" in message
-    assert "0.5" in message
-
-
-def test_shared_grid_same_info_as_equal_grids():
-    x = _centres(-4, 9, 0.25)
-    same = _spectrum(x, np.arange(9.0))
-    shared = _spectrum(x, np.arange(9.0))
-    assert _build_grid(same) == _build_grid(shared)
-    assert_array_equal(same.x_data.magnitude, shared.x_data.magnitude)
-
-
-def test_incompatible_energy_units_raise():
-    init = _spectrum(_centres(0, 4, 1.0), np.ones(4), unit="meV")
-    fund = _spectrum(_centres(0, 4, 1.0), np.ones(4), unit="kelvin")
-    with pytest.raises(ValueError, match="incompatible"):
-        convolve_orders(init, fund, max_order=3, initial_order=1)
-
-
-def test_non_linear_energy_conversion_raises():
-    # Wavelength to energy is not a linear rescaling
-    init = _spectrum(_centres(0, 4, 1.0), np.ones(4), unit="meV")
-    fund = _spectrum(_centres(0, 4, 1.0), np.ones(4), unit="angstrom")
-    with pytest.raises(ValueError, match="not linear"):
-        convolve_orders(init, fund, max_order=3, initial_order=1)
-
-
 # ---------------------------------------------------------------------------
-# 1.3 Zero alignment and bin reading
+# Array routine: agreement with repeated scipy convolution
 # ---------------------------------------------------------------------------
 
-
-def test_edges_with_one_at_zero_lower_edge_reading():
-    grid = _build_grid(_spectrum(_edges(-2, 6, 1.0), np.ones(6)))
-    placement = _zero_placement(grid)
-    assert placement.reading == "lower_edge"
-    assert placement.shift == -2
-
-
-def test_edges_at_half_spacing_centre_reading():
-    # Edges at (k + 0.5) d: bin [-0.5 d, 0.5 d] has its centre at zero
-    edges = (np.arange(7) - 3 + 0.5) * 0.5
-    grid = _build_grid(_spectrum(edges, np.ones(6)))
-    placement = _zero_placement(grid)
-    assert placement.reading == "centre"
-    # The first bin is centred at -1.0 = -2 spacings
-    assert placement.shift == -2
+_SHIFTS = [-4, -2, -1, 0, 1, 3, 7]
+_ROUTINES = {
+    "arrays": _convolve_orders_arrays,  # dispatches on the sign of the shift
+    "one_sided": _convolve_orders_one_sided,
+    "padded": _convolve_orders_padded,
+}
+_ROUTINE_CASES = [
+    pytest.param(name, shift, id=f"{name}-shift{shift}")
+    for name in _ROUTINES
+    for shift in _SHIFTS
+    if not (name == "one_sided" and shift < 0)
+]
 
 
-def test_points_including_zero_centre_reading():
-    grid = _build_grid(_spectrum(_centres(-3, 7, 0.5), np.ones(7)))
-    placement = _zero_placement(grid)
-    assert placement.reading == "centre"
-    assert placement.shift == -3
-
-
-def test_points_offset_by_half_spacing_lower_edge_reading():
-    centres = (np.arange(7) - 3 + 0.5) * 0.5
-    grid = _build_grid(_spectrum(centres, np.ones(7)))
-    placement = _zero_placement(grid)
-    assert placement.reading == "lower_edge"
-    assert placement.shift == -3
-
-
-def test_zero_off_lattice_raises_with_offset():
-    grid = _build_grid(_spectrum(_edges(0, 6, 1.0) + 0.25, np.ones(6)))
-    with pytest.raises(ValueError, match="0.25 bin spacings"):
-        _zero_placement(grid)
-
-
-def test_grid_starting_well_above_zero_integer_shift():
-    # Edges at whole multiples of 0.5 starting at 5.0: shift is 10 bins
-    grid = _build_grid(_spectrum(_edges(10, 4, 0.5), np.ones(4)))
-    placement = _zero_placement(grid)
-    assert placement.reading == "lower_edge"
-    assert placement.shift == 10
-
-
-def test_explicit_lower_edge_matches_no_warning(recwarn):
-    fund = _spectrum(_edges(0, 6, 1.0), np.ones(6))
-    init = _spectrum(_edges(0, 6, 1.0), np.ones(6))
-    convolve_orders(init, fund, max_order=3, initial_order=1, bin_position="lower_edge")
-    assert not [w for w in recwarn if issubclass(w.category, UserWarning)]
-
-
-def test_lower_edge_default_warns_on_edge_grid():
-    fund = _spectrum(_edges(0, 6, 1.0), np.ones(6))
-    init = _spectrum(_edges(0, 6, 1.0), np.ones(6))
-    with pytest.warns(UserWarning, match="lower edges"):
-        convolve_orders(init, fund, max_order=3, initial_order=1)
-
-
-def test_explicit_centre_mismatch_raises():
-    fund = _spectrum(_edges(0, 6, 1.0), np.ones(6))
-    init = _spectrum(_edges(0, 6, 1.0), np.ones(6))
-    with pytest.raises(ValueError, match="does not match"):
-        convolve_orders(init, fund, max_order=3, initial_order=1, bin_position="centre")
-
-
-def test_explicit_lower_edge_mismatch_raises_on_centre_grid():
-    fund = _spectrum(_centres(-2, 6, 1.0), np.ones(6))
-    init = _spectrum(_centres(-2, 6, 1.0), np.ones(6))
-    with pytest.raises(ValueError, match="does not match"):
-        convolve_orders(
-            init, fund, max_order=3, initial_order=1, bin_position="lower_edge"
-        )
-
-
-# ---------------------------------------------------------------------------
-# 2.2 One-sided array routine
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.parametrize("shift", [0, 1, 3, 7])
-def test_one_sided_matches_scipy_reference(shift):
+@pytest.mark.parametrize(("routine", "shift"), _ROUTINE_CASES)
+def test_routine_matches_repeated_scipy_convolution(routine, shift):
     rng = np.random.default_rng(1000 + shift)
-    for _ in range(3):
-        n, length = 40, 25
-        init = rng.random(n)
-        fund = rng.random(length)
-        spacing = 0.37
-        got = _convolve_orders_arrays(init, fund, 4, shift=shift, spacing=spacing)
-        expected = np.array(
-            [_scipy_reference(init, fund, k, shift, spacing) for k in range(1, 5)]
+    init = rng.random(40)
+    fund = rng.random(25)
+    spacing = 0.37
+    got = _ROUTINES[routine](init, fund, 4, shift=shift, spacing=spacing)
+
+    orders = range(1, 5)
+    expected = np.array(
+        [_scipy_reference(init, fund, k, shift, spacing) for k in orders]
+    )
+    atol = 1e-12 * np.abs(expected).max()
+    assert_allclose(got, expected, rtol=0, atol=atol)
+    if shift >= 0:
+        # Mantid's method, cropping after every order, gives the same result
+        cropped = np.array(
+            [_scipy_reference(init, fund, k, shift, spacing, True) for k in orders]
         )
-        scale = np.abs(expected).max()
-        assert_allclose(got, expected, rtol=0, atol=1e-12 * scale)
-
-
-def test_zero_shift_matches_mantid_style_per_order_crop():
-    rng = np.random.default_rng(7)
-    init = rng.random(50)
-    fund = rng.random(30)
-    spacing = 0.5
-    cur = init.copy()
-    expected = []
-    for _ in range(5):
-        cur = convolve(cur, fund * spacing, mode="full")[: init.size]
-        expected.append(cur.copy())
-    expected = np.array(expected)
-    got = _convolve_orders_arrays(init, fund, 5, shift=0, spacing=spacing)
-    scale = np.abs(expected).max()
-    assert_allclose(got, expected, rtol=0, atol=1e-12 * scale)
+        assert_allclose(got, cropped, rtol=0, atol=atol)
 
 
 # ---------------------------------------------------------------------------
-# 2.3 Analytic references
+# Analytic references
 # ---------------------------------------------------------------------------
 
 
@@ -345,15 +393,6 @@ def test_features_on_bin_positions_match_exact_pairwise_sums():
         covered = {np.searchsorted(index, p) for p in ref if p in index}
         outside = [i for i in range(index.size) if i not in covered]
         assert_allclose(row[outside], 0.0, atol=1e-12)
-
-
-def _nearest_bin_density(positions, weights, centres, d):
-    """Intensity binned to the nearest centre, returned as density."""
-    out = np.zeros(centres.size)
-    for x, w in zip(positions, weights, strict=True):
-        i = int(np.argmin(np.abs(centres - x)))
-        out[i] += w
-    return out / d
 
 
 # Box-shaped features at arbitrary positions. The binned representation
@@ -419,11 +458,6 @@ def test_output_density_bin_width_applied_once_per_order():
     assert_allclose(out.y_data.magnitude[0].max(), n_box * d, rtol=1e-12)
 
 
-# ---------------------------------------------------------------------------
-# 2.4 Wraparound
-# ---------------------------------------------------------------------------
-
-
 def test_no_ghost_intensity_from_upper_edge():
     n = 60
     d = 0.5
@@ -437,51 +471,7 @@ def test_no_ghost_intensity_from_upper_edge():
 
 
 # ---------------------------------------------------------------------------
-# 3.1 Padded path
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.parametrize("shift", [-1, -2, -4])
-def test_padded_path_matches_no_intermediate_crop_reference(shift):
-    rng = np.random.default_rng(42 + abs(shift))
-    init = rng.random(30)
-    fund = rng.random(12)
-    spacing = 0.25
-    got = _convolve_orders_padded(init, fund, 3, shift=shift, spacing=spacing)
-    expected = _brute_padded_reference(init, fund, 3, shift, spacing)
-    scale = np.abs(expected).max()
-    assert_allclose(got, expected, rtol=0, atol=1e-12 * scale)
-
-
-@pytest.mark.parametrize("shift", [0, 2, 5])
-def test_padded_path_agrees_with_one_sided_for_non_negative_shift(shift):
-    rng = np.random.default_rng(3)
-    init = rng.random(35)
-    fund = rng.random(20)
-    padded = _convolve_orders_padded(init, fund, 4, shift=shift, spacing=0.3)
-    one_sided = _convolve_orders_one_sided(init, fund, 4, shift=shift, spacing=0.3)
-    scale = np.abs(one_sided).max()
-    assert_allclose(padded, one_sided, rtol=0, atol=1e-12 * scale)
-
-
-def test_dispatch_selects_two_sided_path_for_negative_shift():
-    rng = np.random.default_rng(11)
-    init = rng.random(20)
-    fund = rng.random(8)
-    got = _convolve_orders_arrays(init, fund, 2, shift=-2, spacing=1.0)
-    expected = _convolve_orders_padded(init, fund, 2, shift=-2, spacing=1.0)
-    assert_array_equal(got, expected)
-
-
-def test_shift_crop_moves_and_drops():
-    values = np.array([1.0, 2.0, 3.0, 4.0])
-    assert_array_equal(_shift_crop(values, 2, 5), [0, 0, 1, 2, 3])
-    assert_array_equal(_shift_crop(values, -1, 3), [2, 3, 4])
-    assert_array_equal(_shift_crop(values, 0, 4), values)
-
-
-# ---------------------------------------------------------------------------
-# 3.2 Two-sided scenarios
+# Two-sided scenarios
 # ---------------------------------------------------------------------------
 
 
@@ -548,145 +538,76 @@ def test_two_sided_initial_on_negative_grid_with_nonnegative_fundamentals():
 
 
 # ---------------------------------------------------------------------------
-# 4.1 Public function
+# Public function
 # ---------------------------------------------------------------------------
 
 
-def _order1(n=12, d=0.5, first=0):
-    centres = _centres(first, n, d)
-    rng = np.random.default_rng(99)
-    y = rng.random(n)
-    return _spectrum(centres, y, metadata={"quantum_order": 1})
+def _meta(order):
+    return None if order is None else {"quantum_order": order}
 
 
-def test_derived_orders_default_max_order_gives_nine_rows():
-    spec = _order1()
-    out = convolve_orders(spec, spec, bin_position="centre")
-    assert out.y_data.magnitude.shape == (9, 12)
-    assert [m["quantum_order"] for m in out.iter_metadata()] == list(range(2, 11))
+# Scenario -> (initial order metadata, initial_order argument, fundamentals order
+# metadata, extra keyword arguments, expected row orders, expected warning).
+_FUNDAMENTALS_WARNING = "treated as quantum order 1"
+_ORDER_CASES = {
+    "Default maximum order": (1, None, 1, {}, list(range(2, 11)), None),
+    "Autoconvolution of order 1": (1, None, 1, {"max_order": 4}, [2, 3, 4], None),
+    "Starting from a higher order": (2, None, 1, {"max_order": 5}, [3, 4, 5], None),
+    "Initial order from metadata": (1, None, 1, {"max_order": 3}, [2, 3], None),
+    "Explicit argument": (None, 2, 1, {"max_order": 4}, [3, 4], None),
+    "Argument contradicts metadata": (1, 2, 1, {"max_order": 4}, [3, 4], "differs"),
+    "Fundamentals labelled with another order": (
+        1,
+        None,
+        2,
+        {"max_order": 3},
+        [2, 3],
+        _FUNDAMENTALS_WARNING,
+    ),
+}
 
 
-def test_autoconvolution_to_max_order_four_has_three_rows():
-    spec = _order1()
-    out = convolve_orders(spec, spec, max_order=4, bin_position="centre")
-    assert out.y_data.magnitude.shape[0] == 3
-    assert [m["quantum_order"] for m in out.iter_metadata()] == [2, 3, 4]
+@pytest.mark.parametrize(
+    ("initial_meta", "initial_order", "fund_meta", "max_kwargs", "expected", "warning"),
+    _ORDER_CASES.values(),
+    ids=_ORDER_CASES.keys(),
+)
+def test_row_orders_and_warnings(
+    initial_meta, initial_order, fund_meta, max_kwargs, expected, warning
+):
+    y = _order1().y_data.magnitude
+    init = _spectrum(_centres(0, 12, 0.5), y, metadata=_meta(initial_meta))
+    fund = _spectrum(_centres(0, 12, 0.5), y, metadata=_meta(fund_meta))
+    kwargs = {"bin_position": "centre", **max_kwargs}
+    if initial_order is not None:
+        kwargs["initial_order"] = initial_order
+
+    with warnings.catch_warnings(record=True) as record:
+        warnings.simplefilter("always")
+        out = convolve_orders(init, fund, **kwargs)
+
+    assert [m["quantum_order"] for m in out.iter_metadata()] == expected
+    assert out.y_data.magnitude.shape == (len(expected), 12)
+    if warning is None:
+        assert not record
+    else:
+        assert len(record) == 1
+        assert re.search(warning, str(record[0].message))
+        assert record[0].filename == __file__
 
 
-def test_starting_from_order_two():
-    init = _spectrum(_centres(0, 12, 0.5), np.ones(12), metadata={"quantum_order": 2})
-    fund = _order1()
-    out = convolve_orders(init, fund, max_order=5, bin_position="centre")
-    assert [m["quantum_order"] for m in out.iter_metadata()] == [3, 4, 5]
-
-
-def test_no_scaling_applied_matches_repeated_convolution():
-    spec = _order1()
-    out = convolve_orders(spec, spec, max_order=3, bin_position="centre")
-    d = 0.5
-    cur = spec.y_data.magnitude.copy()
-    for k in range(2):
-        cur = convolve(cur, spec.y_data.magnitude * d, mode="full")[:12]
-        assert_allclose(out.y_data.magnitude[k], cur, rtol=1e-12, atol=1e-12)
-
-
-def test_max_order_not_above_initial_raises():
-    spec = _order1()
-    with pytest.raises(ValueError, match="greater than the initial order"):
-        convolve_orders(spec, spec, max_order=1, bin_position="centre")
-
-
-def test_initial_order_from_metadata():
-    spec = _order1()
-    out = convolve_orders(spec, spec, max_order=3, bin_position="centre")
-    assert [m["quantum_order"] for m in out.iter_metadata()] == [2, 3]
-
-
-def test_initial_order_from_argument_when_no_metadata():
-    base = _spectrum(_centres(0, 12, 0.5), np.ones(12))
-    fund = _order1()
-    out = convolve_orders(
-        base, fund, max_order=4, initial_order=2, bin_position="centre"
-    )
-    assert [m["quantum_order"] for m in out.iter_metadata()] == [3, 4]
-
-
-def test_argument_contradicting_metadata_warns_and_uses_argument():
-    spec = _order1()
-    with pytest.warns(UserWarning, match="differs") as record:
-        out = convolve_orders(
-            spec, spec, max_order=4, initial_order=2, bin_position="centre"
-        )
-    assert record[0].filename == __file__
-    assert [m["quantum_order"] for m in out.iter_metadata()] == [3, 4]
-
-
-def test_no_initial_order_raises():
-    base = _spectrum(_centres(0, 12, 0.5), np.ones(12))
-    fund = _order1()
-    with pytest.raises(ValueError, match="Initial quantum order is unknown"):
-        convolve_orders(base, fund, max_order=3, bin_position="centre")
-
-
-def test_fundamentals_labelled_other_order_warns_and_labels_as_order_one():
-    spec = _order1()
-    fund = _spectrum(
-        _centres(0, 12, 0.5),
-        spec.y_data.magnitude,
-        metadata={"quantum_order": 2},
-    )
-    with pytest.warns(UserWarning, match="treated as quantum order 1") as record:
-        out = convolve_orders(spec, fund, max_order=3, bin_position="centre")
-    assert record[0].filename == __file__
-    assert [m["quantum_order"] for m in out.iter_metadata()] == [2, 3]
-
-
-def test_metadata_propagation_keeps_atom_metadata():
-    atom = {"atom_symbol": "H", "mass": 1.008, "atom_index": 0}
-    spec = _spectrum(
-        _centres(0, 12, 0.5),
-        np.random.default_rng(3).random(12),
-        metadata={**atom, "quantum_order": 1},
-    )
-    out = convolve_orders(spec, spec, max_order=3, bin_position="centre")
-    for item in out.iter_metadata():
-        assert item["atom_symbol"] == "H"
-        assert item["mass"] == 1.008
-        assert item["atom_index"] == 0
-
-
-def test_non_spectrum_input_raises_type_error():
-    spec = _order1()
-    collection = Spectrum1DCollection(
-        x_data=spec.x_data,
-        y_data=Quantity(np.ones((2, 12)), "1/meV"),
-    )
-    with pytest.raises(TypeError):
-        convolve_orders(collection, spec, max_order=3, bin_position="centre")
-
-
-# ---------------------------------------------------------------------------
-# 4.2 Integration
-# ---------------------------------------------------------------------------
-
-
-def test_autoconvolution_matches_hand_built_collection():
-    spec = _order1(n=10, d=1.0)
-    out = convolve_orders(spec, spec, max_order=4, bin_position="centre")
-
+@pytest.mark.parametrize(
+    ("n", "d", "max_order"),
+    [pytest.param(12, 0.5, 3, id="Order 3"), pytest.param(10, 1.0, 4, id="Order 4")],
+)
+def test_no_scaling_matches_repeated_convolution(n, d, max_order):
+    spec = _order1(n=n, d=d)
+    out = convolve_orders(spec, spec, max_order=max_order, bin_position="centre")
     y1 = spec.y_data.magnitude
-    expected = []
-    cur = y1
-    for _ in range(3):
-        cur = convolve(cur, y1 * 1.0, mode="full")[:10]
-        expected.append(cur)
-    reference = Spectrum1DCollection(
-        x_data=spec.x_data,
-        y_data=Quantity(np.array(expected), "1/meV"),
-        metadata={"line_data": [{"quantum_order": q} for q in (2, 3, 4)]},
-    )
-    assert_allclose(out.y_data.magnitude, reference.y_data.magnitude, atol=1e-12)
-    assert [m["quantum_order"] for m in out.iter_metadata()] == [2, 3, 4]
+    current = y1.copy()
+    for k in range(max_order - 1):
+        current = convolve(current, y1 * d, mode="full")[:n]
+        assert_allclose(out.y_data.magnitude[k], current, rtol=1e-12, atol=1e-12)
 
 
 def test_centre_at_zero_matches_lower_edge_reading_on_shifted_grid():
@@ -709,15 +630,17 @@ def test_centre_at_zero_matches_lower_edge_reading_on_shifted_grid():
     assert_allclose(centre_out.y_data.magnitude, edge_out.y_data.magnitude, atol=1e-12)
 
 
-def test_apply_weights_on_result_with_atom_metadata():
-    atom_meta = {"atom_symbol": "H", "mass": 1.00794, "atom_index": 0}
+def test_atom_metadata_is_carried_and_weights_apply():
+    atom = {"atom_symbol": "H", "mass": 1.00794, "atom_index": 0}
     spec = _spectrum(
         _centres(0, 12, 0.5),
-        np.random.default_rng(4).random(12),
-        metadata={**atom_meta, "quantum_order": 1},
+        np.random.default_rng(3).random(12),
+        metadata={**atom, "quantum_order": 1},
     )
     out = convolve_orders(spec, spec, max_order=4, bin_position="centre")
+    for item in out.iter_metadata():
+        for key, value in atom.items():
+            assert item[key] == value
     weighted = apply_weights(out)
     assert weighted.y_data.magnitude.shape == out.y_data.magnitude.shape
     assert not np.allclose(weighted.y_data.magnitude, out.y_data.magnitude)
-    assert [m["quantum_order"] for m in weighted.iter_metadata()] == [2, 3, 4]
