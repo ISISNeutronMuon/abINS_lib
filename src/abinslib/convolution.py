@@ -3,7 +3,7 @@
 Repeated convolution of a binned order-n spectrum with a binned order-1
 (fundamentals) spectrum gives the order-(n + k) spectrum. The operation here
 applies only the convolution and the bookkeeping that goes with it: grid
-validation, bin placement, density units and metadata. Scale factors and
+validation, placement, density units and metadata. Scale factors and
 cross-section weights are applied afterwards by the caller.
 
 Approximations and conventions:
@@ -14,40 +14,10 @@ Approximations and conventions:
 - Mantid-Abins neglects the negative-energy (gain) terms. The padded
   two-sided path in this module includes them when the fundamentals grid
   starts at a negative bin centre.
-- Energy zero must lie on a bin centre or a bin edge of the fundamentals
-  grid. Bins are located at their centres when zero is on a centre, and at
-  their lower edges when zero is on an edge (the Mantid-Abins convention).
-  With the lower-edge reading, intensity of order n sits (n - 1) / 2 bins
-  above the centre of the bin it is reported in.
-
-Grid readings, shown for a bin of width ``d`` centred on zero:
-
-.. list-table::
-   :header-rows: 1
-
-   * - Input axis
-     - Zero falls on
-     - Reading used
-     - Warning issued
-   * - Bin edges, one edge at zero
-     - edge
-     - lower edge
-     - yes, unless ``bin_position`` is given
-   * - Bin edges at half-spacing offsets
-     - centre
-     - centre
-     - no
-   * - N sampling points, one at zero
-     - centre
-     - centre
-     - no
-   * - N sampling points, one at half a spacing
-     - edge
-     - lower edge
-     - yes, unless ``bin_position`` is given
-
-Scale factors and weights are not part of this module; they are applied to
-the returned collection.
+- Sample positions are added as given. Energy zero must be a bin centre
+  (sample position) of the fundamentals grid, so that convolved positions land
+  on the output grid, and an error is raised otherwise. A grid built with
+  *edges* at zero, such as ``numpy.linspace(0, e_max, n + 1)`` is rejected.
 """
 
 from __future__ import annotations
@@ -61,7 +31,6 @@ import numpy as np
 from scipy.fft import irfft, next_fast_len, rfft
 
 _REL_TOL = 1e-6
-_READINGS = ("centre", "lower_edge")
 
 
 @dataclass(frozen=True)
@@ -70,33 +39,18 @@ class _GridInfo:
 
     Attributes:
         spacing: Bin width, in ``unit``.
-        first_edge: Lower edge of the first bin, in ``unit``.
+        first_centre: Position of the first bin centre (sample position), in
+            ``unit``.
         unit: Energy unit string of the axis.
         length: Number of intensity values (bins).
         is_edges: True if the axis was given as bin edges, False if as centres.
-        edge_offset: Distance from energy zero to the nearest bin edge at or
-            below it, as a fraction of the spacing, in [0, 1).
     """
 
     spacing: float
-    first_edge: float
+    first_centre: float
     unit: str
     length: int
     is_edges: bool
-    edge_offset: float
-
-
-@dataclass(frozen=True)
-class _Placement:
-    """Bin reading and integer shift of a zero-aligned grid.
-
-    Attributes:
-        reading: ``"centre"`` or ``"lower_edge"``.
-        shift: Position of the first bin, in units of the spacing.
-    """
-
-    reading: str
-    shift: int
 
 
 def _grid_from_axis(x_data: Quantity, n_values: int) -> _GridInfo:
@@ -135,15 +89,13 @@ def _grid_from_axis(x_data: Quantity, n_values: int) -> _GridInfo:
             f"{diffs.min():.6g} to {diffs.max():.6g} {unit}."
         )
 
-    first_edge = float(x[0]) if is_edges else float(x[0]) - spacing / 2
-    edge_offset = float((-first_edge / spacing) % 1.0)
+    first_centre = float(x[0]) + spacing / 2 if is_edges else float(x[0])
     return _GridInfo(
         spacing=spacing,
-        first_edge=first_edge,
+        first_centre=first_centre,
         unit=unit,
         length=n_values,
         is_edges=is_edges,
-        edge_offset=edge_offset,
     )
 
 
@@ -158,38 +110,36 @@ def _same_axis(a: Quantity, n_a: int, b: Quantity, n_b: int) -> bool:
     )
 
 
-def _zero_placement(grid: _GridInfo) -> _Placement:
-    """Find the bin reading and integer shift from where energy zero falls.
+def _zero_placement(grid: _GridInfo) -> int:
+    """Find the integer shift of the grid's first sample position.
 
     Args:
         grid: Regular grid of the fundamentals.
 
     Returns:
-        The natural reading for the grid and the integer shift of its first
-        bin.
+        The position of the first sample, in units of the spacing.
 
     Raises:
-        ValueError: If zero is neither on a bin centre nor on a bin edge.
+        ValueError: If energy zero is not on a bin centre. The message names
+            the remedy when zero is on a bin edge.
     """
-    offset = grid.edge_offset
-    distance_to_edge = min(offset, 1.0 - offset)
-    if distance_to_edge <= _REL_TOL:
-        reading = "lower_edge"
-        first_bin = grid.first_edge
-    elif abs(offset - 0.5) <= _REL_TOL:
-        reading = "centre"
-        first_bin = grid.first_edge + grid.spacing / 2
-    else:
+    ratio = grid.first_centre / grid.spacing
+    shift = round(ratio)
+    offset = abs(ratio - shift)
+    if offset <= _REL_TOL:
+        return shift
+    if abs(offset - 0.5) <= _REL_TOL:
         raise ValueError(
-            "Energy zero lies "
-            f"{distance_to_edge:.4g} bin spacings "
-            f"({distance_to_edge * grid.spacing:.4g} {grid.unit}) from the nearest "
-            "bin edge of the fundamentals grid. Convolution requires energy zero "
-            "on a bin centre (0.5 spacings from the nearest edge) or on a bin "
-            "edge (0 spacings)."
+            "Energy zero lies on a bin edge of the fundamentals grid, but "
+            "convolution requires it on a bin centre (sample position). If the "
+            "x values are bin edges starting at zero, as in Mantid-Abins, pass "
+            "the lower edges as N sampling points instead."
         )
-    shift = round(first_bin / grid.spacing)
-    return _Placement(reading=reading, shift=shift)
+    raise ValueError(
+        f"Energy zero lies {offset:.4g} bin spacings ({offset * grid.spacing:.4g} "
+        f"{grid.unit}) from the nearest bin centre of the fundamentals grid. "
+        "Convolution requires energy zero on a bin centre (sample position)."
+    )
 
 
 def _shift_crop(values: np.ndarray, shift: int, length: int) -> np.ndarray:
@@ -413,60 +363,54 @@ def convolve_orders(
     max_order: int = 10,
     *,
     initial_order: int | None = None,
-    bin_position: str | None = None,
 ) -> Spectrum1DCollection:
     """Derive higher quantum-order spectra by repeated discrete convolution.
 
     Row k of the result is the initial spectrum convolved k times with the
-    fundamentals (quantum order 1). The rows are labelled with quantum order
-    ``initial_order + k``, share the initial spectrum's energy axis, and carry
-    its other metadata. No scale factors or cross-section weights are applied;
-    apply them to the returned collection.
+    fundamentals (quantum order 1), labelled with quantum order
+    ``initial_order + k``. No scale factors or cross-section weights are
+    applied; apply them to the returned collection.
 
-    Convolving scalar spectra assumes the isotropic approximation. Mantid-Abins
-    neglects negative-energy terms; this function includes them when the
-    fundamentals grid starts at a negative bin centre. Energy zero must lie on
-    a bin centre or bin edge of the fundamentals grid:
+    To avoid drift, the energy zero must be a bin centre on the
+    sampling lattice of fundamentals; otherwise an error is raised.
 
-    - Zero on a bin centre: bins are located at their centres. No warning.
-    - Zero on a bin edge: bins are located at their lower edges. Intensity
-      of order n then sits (n - 1) / 2 bins above the centre of the bin it
-      is reported in. A warning is issued unless ``bin_position`` is given.
+    If negative energies are included in ``fundamentals``, this
+    implementation will use additional padding/memory to accommodate
+    the resulting combination spectra; either way, the results are
+    cropped to the range of ``initial``.
 
     Example:
-        Autoconvolution of an order-1 spectrum up to order 4, with zero at a
-        bin centre::
+        Autoconvolution of an order-1 spectrum up to order 4, with a bin
+        centre at zero::
 
             from abinslib.convolution import convolve_orders
             spectra = convolve_orders(order1, order1, max_order=4)
             weighted = apply_weights(spectra)
 
+        For spectra on bin edges starting at zero, see :doc:`/convolution`.
+
     Args:
         initial: Spectrum of quantum order ``initial_order``.
-        fundamentals: Spectrum of quantum order 1 on the same bin spacing.
+        fundamentals: Spectrum of quantum order 1 on the same bin spacing, as
+            an unweighted intensity density per unit energy (for example in
+            1 / meV), so that the output keeps the units of ``initial``.
         max_order: Highest quantum order to return.
         initial_order: Quantum order of ``initial``. Defaults to its
             ``quantum_order`` metadata.
-        bin_position: ``"centre"`` or ``"lower_edge"``, to state the bin
-            reading explicitly. It must match the reading implied by where
-            zero falls on the fundamentals grid.
 
     Returns:
-        Collection of the derived orders, in increasing order.
+        Collection of the derived orders, in increasing order, with the
+        ``initial`` energy bins and units. ``quantum_order`` metadata
+        is set appropriately for each line; other metadata is copied.
 
     Raises:
         ValueError: If the initial order is unknown, ``max_order`` is not above
-            it, the grids are irregular or differ in spacing, energy zero is
-            not on a bin centre or edge, or ``bin_position`` does not match the
-            grid.
+            it, the grids are irregular or differ in spacing, or energy zero is
+            not on a bin centre of the fundamentals lattice.
         TypeError: If an input is not a Spectrum1D.
     """
     if not isinstance(initial, Spectrum1D) or not isinstance(fundamentals, Spectrum1D):
         raise TypeError("initial and fundamentals must both be Spectrum1D objects.")
-    if bin_position is not None and bin_position not in _READINGS:
-        raise ValueError(
-            f"bin_position must be one of {_READINGS} or None, not {bin_position!r}."
-        )
 
     order = _resolve_initial_order(initial, initial_order)
     initial_meta = dict(initial.metadata or {})
@@ -521,21 +465,7 @@ def convolve_orders(
             f"{fund_spacing:.6g} {init_grid.unit}."
         )
 
-    placement = _zero_placement(fund_grid)
-    if bin_position is not None and bin_position != placement.reading:
-        raise ValueError(
-            f"bin_position={bin_position!r} does not match the fundamentals grid, "
-            f"where energy zero implies the {placement.reading!r} reading."
-        )
-    if placement.reading == "lower_edge" and bin_position is None:
-        warnings.warn(
-            "Energy zero lies on a bin edge of the fundamentals grid, so bins are "
-            "located at their lower edges (Mantid-Abins convention). Each order is "
-            "quantised accordingly. Pass bin_position='lower_edge' to silence this "
-            "warning, or see the convolution documentation.",
-            UserWarning,
-            stacklevel=2,
-        )
+    shift = _zero_placement(fund_grid)
 
     fund_units_in_initial_energy = fund_y.units * fund_x.units / init_x.units
     out_units = init_y.units * fund_units_in_initial_energy * init_x.units
@@ -544,7 +474,7 @@ def convolve_orders(
         init_y.magnitude,
         fund_y.magnitude / units_per_fund_unit,
         n_new,
-        shift=placement.shift,
+        shift=shift,
         spacing=init_grid.spacing,
     )
 

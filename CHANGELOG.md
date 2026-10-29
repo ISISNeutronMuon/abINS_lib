@@ -6,7 +6,7 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### New Features
-- Added `abinslib.convolution.convolve_orders`, which derives quantum-order `n` spectra from an order-`n-1` spectrum and an order-1 spectrum by discrete convolution, up to a maximum order (default 10). Rows carry per-line `quantum_order` labels and the initial spectrum's metadata, and no scale factors or cross-section weights are applied. Energy zero must lie on a bin centre or bin edge of the fundamentals grid; bin positions follow the centre or lower-edge reading, with a warning for the lower-edge reading (Mantid-Abins convention). The lower-edge reading places order-`n` intensity `(n - 1) / 2` bins above the reported bin centre. The documentation covers the isotropic approximation and the neglect of negative-energy terms in Mantid-Abins.
+- Added `abinslib.convolution.convolve_orders`, which derives quantum-order `n` spectra from an order-`n-1` spectrum and an order-1 spectrum by discrete convolution, up to a maximum order (default 10). Rows carry per-line `quantum_order` labels and the initial spectrum's metadata, and no scale factors or cross-section weights are applied. Sample positions are added as given: energy zero must be a bin centre of the fundamentals grid, and grids with edges at zero are rejected with an error that says to pass the lower edges as sampling points, which reproduces Mantid-Abins and places order-`n` intensity `(n - 1) / 2` bins above the reported bin centre. The documentation covers the isotropic approximation and the neglect of negative-energy terms in Mantid-Abins.
 - Added `scipy` as a direct dependency (previously installed through Euphonic).
 
 ### Documentation & Tutorials
