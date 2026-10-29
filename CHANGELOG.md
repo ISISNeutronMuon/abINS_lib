@@ -5,6 +5,14 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### New Features
+- Added `abinslib.convolution.convolve_orders`, which derives quantum-order `n` spectra from an order-`n-1` spectrum and an order-1 spectrum by discrete convolution, up to a maximum order (default 10). Rows carry per-line `quantum_order` labels and the initial spectrum's metadata, and no scale factors or cross-section weights are applied. Sample positions are added as given: energy zero must be a bin centre of the fundamentals grid, and grids with edges at zero are rejected with an error that says to pass the lower edges as sampling points, which reproduces Mantid-Abins and places order-`n` intensity `(n - 1) / 2` bins above the reported bin centre. The documentation covers the isotropic approximation and the neglect of negative-energy terms in Mantid-Abins.
+- Added `scipy` as a direct dependency (previously installed through Euphonic).
+
+### Documentation & Tutorials
+- Added an explanation page on higher quantum orders by convolution.
+- Added Mantid-Abins autoconvolution validation data for ethanol, generated with initial quantum order 1 and 2. Each file holds quantum orders 1-10 as one spectrum collection, labelled by quantum order. Gallery example "Orders 1-2 vs autoconvolution" compares abinslib orders 1 and 2 with the initial-order-1 and initial-order-2 files respectively, and compares total spectra summed over orders and atoms. Both orders agree with abinslib to numerical precision. Orders 3-10 differ between the two initial-order files.
+
 ## [0.3.0] - 2026-09-21
 
 ### API and Data Model Changes

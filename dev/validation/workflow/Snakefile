@@ -5,6 +5,8 @@ rule all:
         "results/ethanol_mantid_isotropic_fundamentals.json",
         "results/ethanol_mantid_almost_isotropic_fundamentals.json",
         "results/ethanol_mantid_second_order.json",
+        "results/ethanol_mantid_autoconvolution_from_order_1.json",
+        "results/ethanol_mantid_autoconvolution_from_order_2.json",
 
 rule write_isotropic_fundamentals_mantid:
     input:
@@ -40,3 +42,17 @@ rule write_second_order_mantid:
        abins_kwargs=config["abins_kwargs"]
    script:
        "scripts/write_mantid_second_order.py"
+
+rule write_autoconvolution_mantid:
+    input:
+        "data/{label}_qpoint_phonon_modes.json",
+    output:
+        "results/{label}_mantid_autoconvolution_from_order_{start}.json",
+    wildcard_constraints:
+        start=r"\d+",
+    params:
+        raw=True,
+        initial_order=lambda wc: wc.start,
+        abins_kwargs=config["abins_kwargs"],
+    script:
+        "scripts/write_mantid_autoconvolution.py"

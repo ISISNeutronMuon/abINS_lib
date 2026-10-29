@@ -16,6 +16,7 @@ very close agreement with output from the Mantid `Abins v1` algorithm.
 
 from euphonic import QpointPhononModes, Quantity, Spectrum1D
 from euphonic.plot import plot_1d_to_axis
+from euphonic.spectra import Spectrum1DCollection
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -54,11 +55,13 @@ def plot_validation_comparison(
     title: str,
     xlim: float,
     width: Quantity = Quantity(1, "meV"),
+    yscale: str = "log",
 ) -> None:
     """Plot two spectra for comparison.
 
     Fixed-width Gaussian broadening is added as a visual aid and approximation
-    to instrumental resolution.
+    to instrumental resolution. A log y-scale is suited to high-precision
+    comparison; use ``yscale="linear"`` to check that spectra look physical.
     """
     fig, ax = plt.subplots()
     plot_1d_to_axis(abins_spectrum.broaden(width), ax, label=abins_label)
@@ -71,7 +74,7 @@ def plot_validation_comparison(
     ax.set_xlim(0, xlim)
     ax.set_xlabel("Energy transfer / meV")
     ax.set_ylabel("$S(\\omega)$ / barn meV$^{-1}$")
-    ax.set_yscale("log")
+    ax.set_yscale(yscale)
 
     fig.tight_layout()
     plt.show()
@@ -177,4 +180,130 @@ plot_validation_comparison(
         r"$134.99^\circ E_f = 32 \mathrm{cm}^{-1}$"
     ),
     xlim=420,
+)
+
+# %%
+# Orders 1-2 vs Mantid calculations with Autoconvolution
+# ------------------------------------------------------
+# Mantid-Abins autoconvolution spectra are generated from two initial quantum
+# orders, 1 and 2. Each file holds quantum orders 1 to 10 and each order is
+# selected by its metadata label, summed over atoms.
+#
+# First we check that the non-autoconvolution orders agree with the functions
+# already validated above.
+#
+# Order 1 is the same in both files and is taken from the initial-order-1
+# file. It is computed directly, and abinslib agrees with it to numerical
+# precision when using `calculate_almost_isotropic_incoherent_spectra`.
+#
+# Order 2 is taken from the initial-order-2 file, where it is computed directly
+# rather than by autoconvolution. It is compared with
+# `mantid_like_combination_spectra`, and the two agree to about 6e-6 of the
+# peak maximum.
+
+mantid_autoconv_file = get_validation_data(
+    "ethanol_mantid_autoconvolution_from_order_1.json"
+)
+mantid_autoconv = Spectrum1DCollection.from_json_file(mantid_autoconv_file)
+bins = mantid_autoconv.get_bin_edges(restrict_range=False)
+
+# Order 1: almost-isotropic fundamentals, Q^2 from mode frequencies.
+mantid_autoconv_order1 = mantid_autoconv.select(quantum_order=1).sum()
+
+q2_autoconv_order1 = calculate_indirect_q2(
+    modes.frequencies,
+    angle=angle,
+    final_energy=final_energy,
+)
+spectra_autoconv_order1 = calculate_almost_isotropic_incoherent_spectra(
+    modes, displacements, dw, q2_autoconv_order1, bins
+)
+abinslib_autoconv_order1 = apply_weights(spectra_autoconv_order1).sum()
+
+plot_validation_comparison(
+    abins_spectrum=abinslib_autoconv_order1,
+    mantid_spectrum=mantid_autoconv_order1,
+    abins_label="calculate_almost_isotropic_incoherent_spectra",
+    mantid_label="Mantid-Abins order 1 (initial order 1, autoconvolution)",
+    title=(
+        "Ethanol order 1 (initial order 1):\n"
+        r"$134.99^\circ E_f = 32 \mathrm{cm}^{-1}$"
+    ),
+    xlim=200,
+)
+
+# Order 2: Mantid-like combination spectra, Q^2 at bin centres. Order 2 is
+# computed directly in the run with initial quantum order 2.
+mantid_autoconv_2_file = get_validation_data(
+    "ethanol_mantid_autoconvolution_from_order_2.json"
+)
+mantid_autoconv_2 = Spectrum1DCollection.from_json_file(mantid_autoconv_2_file)
+bins_2 = mantid_autoconv_2.get_bin_edges(restrict_range=False)
+
+mantid_autoconv_order2 = mantid_autoconv_2.select(quantum_order=2).sum()
+
+q2_autoconv_order2 = calculate_indirect_q2(
+    mantid_autoconv_order2.get_bin_centres(),
+    angle=angle,
+    final_energy=final_energy,
+)
+spectra_autoconv_order2 = mantid_like_combination_spectra(
+    modes, displacements, dw, q2_autoconv_order2, bins_2
+)
+abinslib_autoconv_order2 = apply_weights(spectra_autoconv_order2).sum()
+
+plot_validation_comparison(
+    abins_spectrum=abinslib_autoconv_order2,
+    mantid_spectrum=mantid_autoconv_order2,
+    abins_label="mantid_like_combination_spectra",
+    mantid_label="Mantid-Abins order 2 (initial order 2, autoconvolution)",
+    title=(
+        "Ethanol order 2 (initial order 2):\n"
+        r"$134.99^\circ E_f = 32 \mathrm{cm}^{-1}$"
+    ),
+    xlim=420,
+)
+
+# %%
+# Total Spectra (All Orders)
+# --------------------------
+# Autoconvolution is not yet implemented in abinslib, so we visualise what it
+# should add. Broad spectra are produced extending into high frequencies.
+#
+# Total spectra are summed over quantum orders from the reference data.
+#
+# The two Mantid runs give nearly the same total spectrum. Their integrated
+# intensities differ by about 1.7%. Orders 3-10 contribute about 53% of the
+# integrated total in the initial-order-2 run. The abinslib orders 1 and 2 sum
+# lies well below the Mantid total at higher energy transfer, so most of the
+# high-energy intensity in the Mantid total comes from orders 3-10.
+
+mantid_autoconv_total_1 = mantid_autoconv.sum()
+mantid_autoconv_total_2 = mantid_autoconv_2.sum()
+abinslib_orders_1_2 = abinslib_autoconv_order1 + abinslib_autoconv_order2
+
+plot_validation_comparison(
+    abins_spectrum=abinslib_orders_1_2,
+    mantid_spectrum=mantid_autoconv_total_2,
+    abins_label="abinslib orders 1 and 2",
+    mantid_label="Mantid-Abins total, orders 1-10 (initial order 2)",
+    title=(
+        "Ethanol total spectrum:\n"
+        r"$134.99^\circ E_f = 32 \mathrm{cm}^{-1}$"
+    ),
+    xlim=420,
+    yscale="linear",
+)
+
+plot_validation_comparison(
+    abins_spectrum=mantid_autoconv_total_1,
+    mantid_spectrum=mantid_autoconv_total_2,
+    abins_label="Mantid-Abins total, orders 1-10 (initial order 1)",
+    mantid_label="Mantid-Abins total, orders 1-10 (initial order 2)",
+    title=(
+        "Ethanol total spectrum, Mantid runs:\n"
+        r"$134.99^\circ E_f = 32 \mathrm{cm}^{-1}$"
+    ),
+    xlim=420,
+    yscale="linear",
 )
